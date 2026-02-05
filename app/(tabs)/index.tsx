@@ -49,7 +49,10 @@ export default function LobbyScreen() {
     phase,
     imposterCount,
     imposterWordMode,
+    endGame,
   } = useGame();
+
+  const isGameActive = phase !== GamePhase.SETUP && phase !== GamePhase.PLAYER_SETUP;
 
   const { customCategories } = useCustomCategories();
   const allCategories = [...PREDEFINED_CATEGORIES, ...customCategories];
@@ -60,9 +63,28 @@ export default function LobbyScreen() {
   }
 
   const handleStartGame = () => {
+    if (isGameActive) {
+      if (phase === GamePhase.REVEAL) {
+        router.push('/reveal');
+      } else {
+        router.push('/game');
+      }
+      return;
+    }
+
     if (selectedCategories.length === 0 || players.length < 3) return;
     startGame();
     router.push('/reveal');
+  };
+
+  const handleManagePlayers = () => {
+    if (isGameActive) endGame();
+    router.push('/player-setup');
+  };
+
+  const handleSettings = () => {
+    if (isGameActive) endGame();
+    router.push('/settings');
   };
 
   const canStartGame = selectedCategories.length > 0 && players.length >= 3;
@@ -71,7 +93,8 @@ export default function LobbyScreen() {
     switch (imposterWordMode) {
       case 'different_word': return 'Different word';
       case 'no_word': return 'No word shown';
-      case 'same_word': return 'Same word';
+      case 'hint_mode': return 'Hint Round';
+      default: return 'Standard';
     }
   };
 
@@ -93,7 +116,7 @@ export default function LobbyScreen() {
         </View>
 
         {/* Players Summary Card */}
-        <Card style={styles.card} mode="elevated" onPress={() => router.push('/player-setup')}>
+        <Card style={styles.card} mode="elevated" onPress={handleManagePlayers}>
           <Card.Content style={styles.playerSummary}>
             <View style={styles.playerSummaryLeft}>
               <View style={styles.avatarStack}>
@@ -104,7 +127,11 @@ export default function LobbyScreen() {
                     label={player.name.charAt(0).toUpperCase()}
                     style={[
                       styles.stackedAvatar,
-                      { marginLeft: index * -12 }
+                      {
+                        marginLeft: index === 0 ? 0 : -12,
+                        borderColor: theme.colors.surface,
+                        zIndex: 10 - index
+                      }
                     ]}
                   />
                 ))}
@@ -112,7 +139,13 @@ export default function LobbyScreen() {
                   <Avatar.Text
                     size={36}
                     label={`+${players.length - 3}`}
-                    style={[styles.stackedAvatar, { marginLeft: -12 }]}
+                    style={[
+                      styles.stackedAvatar,
+                      {
+                        marginLeft: -12,
+                        borderColor: theme.colors.surface
+                      }
+                    ]}
                     labelStyle={{ fontSize: 12 }}
                   />
                 )}
@@ -129,7 +162,7 @@ export default function LobbyScreen() {
         </Card>
 
         {/* Game Settings Card */}
-        <Card style={styles.card} mode="outlined" onPress={() => router.push('/settings')}>
+        <Card style={styles.card} mode="outlined" onPress={handleSettings}>
           <Card.Content>
             <View style={styles.settingsRow}>
               <Avatar.Icon
@@ -221,17 +254,29 @@ export default function LobbyScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Start Game FAB */}
-      <FAB
-        icon="play"
-        label="Start Game"
-        style={[
-          styles.fab,
-          !canStartGame && { backgroundColor: theme.colors.surfaceDisabled }
-        ]}
-        onPress={handleStartGame}
-        disabled={!canStartGame}
-      />
+      {/* Start Game / Resume FAB */}
+      <View style={styles.fabContainer}>
+        {isGameActive && (
+          <FAB
+            icon="close"
+            label="Exit Game"
+            onPress={endGame}
+            style={[styles.smallFab, { backgroundColor: theme.colors.errorContainer }]}
+            color={theme.colors.onErrorContainer}
+            size="small"
+          />
+        )}
+        <FAB
+          icon={isGameActive ? "play-pause" : "play"}
+          label={isGameActive ? "Resume Game" : "Start Game"}
+          style={[
+            styles.fab,
+            !isGameActive && !canStartGame && { backgroundColor: theme.colors.surfaceDisabled }
+          ]}
+          onPress={handleStartGame}
+          disabled={!isGameActive && !canStartGame}
+        />
+      </View>
     </Surface>
   );
 }
@@ -272,7 +317,6 @@ const styles = StyleSheet.create({
   },
   stackedAvatar: {
     borderWidth: 2,
-    borderColor: 'white',
   },
   playerInfo: {
     marginLeft: 8,
@@ -288,11 +332,12 @@ const styles = StyleSheet.create({
   settingsChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 4,
-    gap: 4,
+    marginTop: 6,
+    gap: 6,
+    alignItems: 'center',
   },
   chip: {
-    height: 28,
+    // Removed fixed height to prevent text cropping
   },
   section: {
     marginTop: 8,
@@ -323,10 +368,17 @@ const styles = StyleSheet.create({
   customBadge: {
     marginTop: 8,
   },
-  fab: {
+  fabContainer: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
+    right: 16,
     bottom: 24,
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  fab: {
+    // Standard FAB style
+  },
+  smallFab: {
+    // Smaller FAB for secondary actions
   },
 });

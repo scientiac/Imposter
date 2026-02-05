@@ -4,16 +4,21 @@
  */
 
 import { GamePhase, useGame } from '@/contexts/game-context';
-import { Redirect, router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Redirect } from 'expo-router';
+import { useRef, useState } from 'react';
+import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
 import {
     Avatar,
     Button,
     Card,
+    Modal,
+    Portal,
     ProgressBar,
     Surface,
     Text,
-    useTheme,
+    TextInput,
+    useTheme
 } from 'react-native-paper';
 import Animated, {
     Extrapolation,
@@ -33,13 +38,25 @@ export default function RevealScreen() {
         nextPlayerReveal,
         startDiscussion,
         isPlayerImposter,
-        imposterWordMode,
         phase,
+        imposterWordMode,
+        hintWord,
+        allHints,
+        addHint,
+        revealPass,
+        revealOrder,
     } = useGame();
+
+    const [verificationInput, setVerificationInput] = useState('');
+    const [isVerificationModalVisible, setVerificationModalVisible] = useState(false);
+    const [isVerified, setIsVerified] = useState(false);
+    const [hintInput, setHintInput] = useState('');
+    const [showPassPhone, setShowPassPhone] = useState(true);
+    const revealTimeoutRef = useRef<any>(null);
 
     const rotation = useSharedValue(0);
 
-    // Animated Styles (Moved up before early returns)
+    // Animated Styles
     const frontAnimatedStyle = useAnimatedStyle(() => {
         const rotateValue = interpolate(
             rotation.value,
@@ -64,54 +81,159 @@ export default function RevealScreen() {
         };
     });
 
-    // Determine content derived from state (safely)
-    const currentPlayer = players[currentPlayerIndex];
     if (phase !== GamePhase.REVEAL) {
         return <Redirect href="/game" />;
     }
+
+    // Determine current player safely
+    const actualPlayerIndex = revealOrder && revealOrder.length > 0
+        ? revealOrder[currentPlayerIndex]
+        : currentPlayerIndex;
+
+    const currentPlayer = players[actualPlayerIndex];
+
     if (!currentPlayer) {
         return <Redirect href="/(tabs)" />;
     }
 
     const isLastPlayer = currentPlayerIndex === players.length - 1;
-    const isImposter = isPlayerImposter(currentPlayerIndex);
-    const playerWord = getPlayerWord(currentPlayerIndex);
+    const isImposter = isPlayerImposter(actualPlayerIndex);
+    const playerWord = getPlayerWord(actualPlayerIndex);
     const progress = (currentPlayerIndex + 1) / players.length;
 
+    const availableHints = allHints.filter(h => h.trim().length > 0);
+    const randomHint = availableHints.length > 0
+        ? availableHints[Math.floor(Math.random() * availableHints.length)]
+        : null;
+
     const handlePressIn = () => {
-        rotation.value = withTiming(180, { duration: 300 });
-        revealWord(currentPlayerIndex);
+        // Start a 1s timer for reveal
+        revealTimeoutRef.current = setTimeout(() => {
+            rotation.value = withTiming(180, { duration: 300 });
+            revealWord(actualPlayerIndex);
+
+            // Trigger haptic feedback
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            revealTimeoutRef.current = null;
+        }, 1000);
     };
 
     const handlePressOut = () => {
+        // Clear timeout if released before 1s
+        if (revealTimeoutRef.current) {
+            clearTimeout(revealTimeoutRef.current);
+            revealTimeoutRef.current = null;
+        }
+
         rotation.value = withTiming(0, { duration: 300 });
+
+        // Auto-verify in Pass 1, Modal in Pass 2
+        if (revealPass === 1) {
+            setIsVerified(true);
+        } else {
+            // Pass 2: Everyone must provide a hint
+            if (!isVerified) {
+                setTimeout(() => setVerificationModalVisible(true), 300);
+            }
+        }
+    };
+
+    const handlePassPhone = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setShowPassPhone(false);
     };
 
     const handleNext = () => {
-        if (isLastPlayer) {
-            startDiscussion();
-            router.replace('/game');
-        } else {
-            nextPlayerReveal();
+        // If in pass 2 and not verified, open modal (safety check)
+        if (revealPass === 2 && !isVerified) {
+            setVerificationModalVisible(true);
+            return;
         }
+
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+        // Reset local state for next player
+        setVerificationInput('');
+        setHintInput('');
+        setIsVerified(false);
+        setVerificationModalVisible(false);
+
+        nextPlayerReveal();
+        setShowPassPhone(true);
     };
 
     const getWordDisplay = () => {
-        if (isImposter && imposterWordMode === 'no_word') {
+        if (revealPass === 1) {
+            if (isImposter && (imposterWordMode === 'no_word' || imposterWordMode === 'hint_mode')) {
+                return {
+                    title: 'Imposter',
+                    subtitle: 'Role: Imposter',
+                    icon: 'incognito',
+                };
+            }
+
             return {
-                title: 'You are the Imposter!',
-                subtitle: 'Try to blend in without knowing the word',
-                icon: 'incognito',
+                title: playerWord,
+                subtitle: isImposter ? 'Role: Imposter' : 'Secret Word',
+                icon: isImposter ? 'incognito' : 'eye',
             };
         }
+
+        // Pass 2: Hint Injection
+        if (isImposter) {
+            return {
+                title: 'Hint Phase',
+                subtitle: randomHint
+                    ? `Hint: ${randomHint}`
+                    : 'Provide a hint for the Imposter', // Disguise if first/unlucky
+                icon: 'lightbulb-on',
+            };
+        }
+
         return {
-            title: playerWord,
-            subtitle: isImposter ? 'You are the Imposter!' : 'Remember this word',
-            icon: isImposter ? 'incognito' : 'eye',
+            title: 'Hint Phase',
+            subtitle: 'Provide a hint for the Imposter',
+            icon: 'lightbulb',
         };
     };
 
+    if (showPassPhone) {
+        return (
+            <Surface style={styles.container}>
+                <View style={styles.passPhoneContainer}>
+                    <Surface style={styles.passPhoneCard} elevation={2}>
+                        <Avatar.Icon
+                            size={80}
+                            icon="cellphone-arrow-down"
+                            style={{ backgroundColor: theme.colors.primaryContainer }}
+                        />
+                        <Text variant="headlineMedium" style={[styles.phaseTitle, { marginTop: 24 }]}>
+                            Pass the Phone
+                        </Text>
+                        <Text variant="titleMedium" style={{ color: theme.colors.primary, marginTop: 8 }}>
+                            To: {currentPlayer.name}
+                        </Text>
+                        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 16 }}>
+                            Please hand the device to the next player securely.
+                        </Text>
+
+                        <Button
+                            mode="contained"
+                            onPress={handlePassPhone}
+                            style={{ marginTop: 32, width: '100%' }}
+                            contentStyle={styles.buttonContent}
+                            icon="account-arrow-right"
+                        >
+                            I am {currentPlayer.name}
+                        </Button>
+                    </Surface>
+                </View>
+            </Surface>
+        );
+    }
+
     const wordInfo = getWordDisplay();
+    const isHintPhase = revealPass === 2;
 
     return (
         <Surface style={styles.container}>
@@ -203,6 +325,67 @@ export default function RevealScreen() {
                         </Card>
                     </Animated.View>
                 </Pressable>
+
+                {/* Verification / Hint Modal */}
+                <Portal>
+                    <Modal
+                        visible={isVerificationModalVisible}
+                        dismissable={false}
+                        contentContainerStyle={styles.modalContent}
+                    >
+                        <Card>
+                            <Card.Title
+                                title={isHintPhase ? "Hint Contribution" : "Quick Verification"}
+                                subtitle={isHintPhase ? "Enter a hint for the Imposter" : "Prove you paid attention"}
+                                left={(props) => <Avatar.Icon {...props} icon={isHintPhase ? "lightbulb" : "lock"} />}
+                            />
+                            <Card.Content>
+                                <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
+                                    {isHintPhase
+                                        ? isImposter
+                                            ? !randomHint
+                                                ? "You are unlucky this time! You are the first person pretending to type the hint. Pretend to be typing a hint to blend in, you are the Imposter."
+                                                : "Pretend to be typing a hint, you are the Imposter. Type anything to blend in."
+                                            : "Enter a one-word hint that relates to the secret word."
+                                        : "Type the secret word you just saw to confirm you remember it."
+                                    }
+                                </Text>
+
+                                <TextInput
+                                    mode="outlined"
+                                    label={isHintPhase ? "Hint Word" : "Secret Word"}
+                                    value={isHintPhase ? hintInput : verificationInput}
+                                    onChangeText={isHintPhase ? setHintInput : setVerificationInput}
+                                    autoFocus
+                                    style={{ marginBottom: 16 }}
+                                />
+
+                                <Button
+                                    mode="contained"
+                                    onPress={() => {
+                                        if (isHintPhase) {
+                                            if (hintInput.trim().length > 0) {
+                                                if (!isImposter) {
+                                                    addHint(hintInput.trim());
+                                                }
+                                                setIsVerified(true);
+                                                setVerificationModalVisible(false);
+                                            }
+                                        } else {
+                                            if (verificationInput.trim().length > 0) {
+                                                setIsVerified(true);
+                                                setVerificationModalVisible(false);
+                                            }
+                                        }
+                                    }}
+                                    disabled={(isHintPhase ? hintInput : verificationInput).trim().length === 0}
+                                >
+                                    Confirm
+                                </Button>
+                            </Card.Content>
+                        </Card>
+                    </Modal>
+                </Portal>
             </View>
 
             {/* Next Button */}
@@ -210,17 +393,22 @@ export default function RevealScreen() {
                 <Button
                     mode="contained"
                     onPress={handleNext}
+                    disabled={!isVerified}
                     style={styles.nextButton}
                     contentStyle={styles.buttonContent}
                     icon={isLastPlayer ? 'play' : 'cellphone-arrow-down'}
                 >
                     {isLastPlayer
-                        ? 'Start Discussion'
-                        : `Pass to ${players[currentPlayerIndex + 1]?.name}`
+                        ? isHintPhase
+                            ? 'Reveal Results'
+                            : imposterWordMode === 'hint_mode'
+                                ? 'Go to Hint Round'
+                                : 'Start Discussion'
+                        : `Pass to ${players[revealOrder[currentPlayerIndex + 1]]?.name || 'Next'}`
                     }
                 </Button>
             </Surface>
-        </Surface>
+        </Surface >
     );
 }
 
@@ -300,5 +488,25 @@ const styles = StyleSheet.create({
     },
     buttonContent: {
         paddingVertical: 8,
+    },
+    modalContent: {
+        padding: 20,
+    },
+    passPhoneContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    passPhoneCard: {
+        width: '100%',
+        padding: 32,
+        alignItems: 'center',
+        borderRadius: 24,
+    },
+    phaseTitle: {
+        fontWeight: 'bold',
+        marginTop: 16,
+        marginBottom: 8,
     },
 });

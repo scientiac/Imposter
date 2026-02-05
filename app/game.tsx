@@ -4,9 +4,9 @@
  */
 
 import { GamePhase, useGame } from '@/contexts/game-context';
-import { router } from 'expo-router';
+import { router, useRootNavigationState } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { LayoutAnimation, Platform, ScrollView, StyleSheet, UIManager, View } from 'react-native';
 import {
     Avatar,
     Button,
@@ -20,17 +20,27 @@ import {
     useTheme
 } from 'react-native-paper';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export default function GameScreen() {
     const { phase } = useGame();
 
+    const rootNavigationState = useRootNavigationState();
+
     // Redirect based on game phase
     useEffect(() => {
+        if (!rootNavigationState?.key) return;
+
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
         if (phase === GamePhase.SETUP || phase === GamePhase.PLAYER_SETUP) {
             router.replace('/(tabs)');
         } else if (phase === GamePhase.REVEAL) {
             router.replace('/reveal');
         }
-    }, [phase]);
+    }, [phase, rootNavigationState?.key]);
 
     return (
         <Surface style={styles.container}>
@@ -82,18 +92,45 @@ function DiscussionView() {
             )}
 
             <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-                <Card mode="elevated">
+                <Card mode="elevated" style={styles.card}>
                     {players.map((p, index) => (
                         <List.Item
                             key={p.id}
                             title={p.name}
                             description={`${p.score} points`}
                             left={props => (
-                                <Avatar.Text {...props} size={40} label={p.name.charAt(0).toUpperCase()} />
+                                <Avatar.Text
+                                    {...props}
+                                    size={40}
+                                    label={p.name.charAt(0).toUpperCase()}
+                                    style={{
+                                        backgroundColor: theme.colors.primaryContainer,
+                                        marginLeft: 12
+                                    }}
+                                    labelStyle={{ color: theme.colors.onPrimaryContainer }}
+                                />
                             )}
                             right={props =>
                                 startingPlayerIndex === index ? (
-                                    <Chip {...props} compact icon="flag-checkered">First</Chip>
+                                    <View style={{ justifyContent: 'center', marginRight: 12 }}>
+                                        <Chip
+                                            {...props}
+                                            compact
+                                            icon="flag-checkered"
+                                            style={{
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                height: 28,
+                                            }}
+                                            textStyle={{
+                                                fontSize: 12,
+                                                lineHeight: 14,
+                                                marginVertical: 0,
+                                            }}
+                                        >
+                                            First
+                                        </Chip>
+                                    </View>
                                 ) : null
                             }
                         />
@@ -130,12 +167,15 @@ function VotingView() {
     } = useGame();
 
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-    const [showPassPhone, setShowPassPhone] = useState(false);
+    const [showPassPhone, setShowPassPhone] = useState(true);
 
     const currentVoter = getCurrentVoter();
     const progress = (currentVoterIndex + 1) / players.length;
     const isLastVoter = currentVoterIndex === players.length - 1;
-    const hasVoted = currentVoter ? !!votes[currentVoter.id] : false;
+
+    // Determine next voter name for button label
+    const nextVoterIndex = currentVoterIndex + 1;
+    const nextVoterName = nextVoterIndex < players.length ? players[nextVoterIndex].name : 'Results';
 
     const handleVote = () => {
         if (!currentVoter || !selectedTarget) return;
@@ -146,13 +186,13 @@ function VotingView() {
             // All votes cast, submit
             submitVotes();
         } else {
+            nextVoter();
             setShowPassPhone(true);
         }
     };
 
     const handlePassPhone = () => {
         setShowPassPhone(false);
-        nextVoter();
     };
 
     if (!currentVoter) {
@@ -163,26 +203,32 @@ function VotingView() {
         return (
             <View style={styles.phaseContainer}>
                 <View style={styles.passPhoneContainer}>
-                    <Avatar.Icon
-                        size={80}
-                        icon="cellphone-arrow-down"
-                        style={{ backgroundColor: theme.colors.primaryContainer }}
-                    />
-                    <Text variant="headlineMedium" style={[styles.phaseTitle, { marginTop: 24 }]}>
-                        Pass the Phone
-                    </Text>
-                    <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
-                        Hand the phone to the next player
-                    </Text>
-                    <Button
-                        mode="contained"
-                        onPress={handlePassPhone}
-                        style={{ marginTop: 32 }}
-                        contentStyle={styles.buttonContent}
-                        icon="account-arrow-right"
-                    >
-                        Next Voter
-                    </Button>
+                    <Surface style={styles.passPhoneCard} elevation={2}>
+                        <Avatar.Icon
+                            size={80}
+                            icon="cellphone-arrow-down"
+                            style={{ backgroundColor: theme.colors.primaryContainer }}
+                        />
+                        <Text variant="headlineMedium" style={[styles.phaseTitle, { marginTop: 24 }]}>
+                            Pass the Phone
+                        </Text>
+                        <Text variant="titleMedium" style={{ color: theme.colors.primary, marginTop: 8 }}>
+                            To: {currentVoter.name}
+                        </Text>
+                        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 16 }}>
+                            Please hand the device to the next player securely.
+                        </Text>
+
+                        <Button
+                            mode="contained"
+                            onPress={handlePassPhone}
+                            style={{ marginTop: 32, width: '100%' }}
+                            contentStyle={styles.buttonContent}
+                            icon="account-arrow-right"
+                        >
+                            I am {currentVoter.name}
+                        </Button>
+                    </Surface>
                 </View>
             </View>
         );
@@ -275,7 +321,10 @@ function VotingView() {
                     contentStyle={styles.buttonContent}
                     icon="check-circle"
                 >
-                    {isLastVoter ? 'Submit Final Vote' : 'Confirm Vote'}
+                    {isLastVoter
+                        ? 'Submit Final Vote'
+                        : `Confirm & Pass to ${nextVoterName}`
+                    }
                 </Button>
             </Surface>
         </View>
@@ -486,7 +535,7 @@ const styles = StyleSheet.create({
     },
     playerList: {
         flex: 1,
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
     },
     voterCard: {
         marginHorizontal: 20,
@@ -524,6 +573,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+    },
+    passPhoneCard: {
+        width: '100%',
+        padding: 32,
+        alignItems: 'center',
+        borderRadius: 24,
     },
     resultsContent: {
         padding: 20,

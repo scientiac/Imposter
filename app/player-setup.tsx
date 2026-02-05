@@ -3,7 +3,7 @@
  */
 
 import { GamePhase, useGame } from '@/contexts/game-context';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {
@@ -56,8 +56,7 @@ export default function PlayerSetupScreen() {
 
     // Redirect if not in player setup or lobby setup phase
     if (phase !== GamePhase.PLAYER_SETUP && phase !== GamePhase.SETUP) {
-        router.replace('/(tabs)');
-        return null;
+        return <Redirect href="/(tabs)" />;
     }
 
     return (
@@ -199,23 +198,22 @@ export default function PlayerSetupScreen() {
                 <View style={{ height: 100 }} />
             </ScrollView>
 
-            {/* Start Game Button */}
-            {canStartGame && !isEntering && (
-                <Surface style={styles.buttonContainer} elevation={4}>
-                    <Button
-                        mode="contained"
-                        onPress={handleStartGame}
-                        style={styles.startButton}
-                        contentStyle={styles.startButtonContent}
-                        icon={isInitialSetup ? "play" : "check"}
-                    >
-                        {isInitialSetup
-                            ? `Start Game with ${players.length} Players`
-                            : "Return to Lobby"
-                        }
-                    </Button>
-                </Surface>
-            )}
+            {/* Start Game / Actions Button */}
+            <Surface style={styles.buttonContainer} elevation={4}>
+                <Button
+                    mode="contained"
+                    onPress={isInitialSetup ? handleStartGame : () => router.back()}
+                    disabled={isInitialSetup && !canStartGame}
+                    style={styles.startButton}
+                    contentStyle={styles.startButtonContent}
+                    icon={isInitialSetup ? "play" : "check"}
+                >
+                    {isInitialSetup
+                        ? `Start Game with ${players.length} Players`
+                        : "Return to Lobby"
+                    }
+                </Button>
+            </Surface>
         </Surface>
     );
 }

@@ -67,17 +67,18 @@ export default function SettingsScreen() {
                             )}
                             onPress={() => handleWordModeChange('no_word')}
                         />
-                        <Divider />
                         <List.Item
-                            title="Show Same Word"
-                            description="Imposter sees the same word as others (harder)"
-                            left={props => <List.Icon {...props} icon="eye-check" />}
+                            title="Show with Hint"
+                            description="Imposter sees title with a hint from a Townie"
+                            left={props => <List.Icon {...props} icon="lightbulb" />}
                             right={() => (
-                                <RadioButton value="same_word" />
+                                <RadioButton value="hint_mode" />
                             )}
-                            onPress={() => handleWordModeChange('same_word')}
+                            onPress={() => handleWordModeChange('hint_mode')}
                         />
                     </RadioButton.Group>
+
+
                 </List.Section>
 
                 <Divider style={styles.sectionDivider} />
