@@ -5,7 +5,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { withLayoutContext } from 'expo-router';
-import React from 'react';
+import { View } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 import { Layout } from '@/constants/theme';
@@ -34,34 +34,47 @@ export default function TabLayout() {
           marginHorizontal: Layout.floatingBar.marginHorizontal,
           left: 0,
           right: 0,
-          height: 64,
-          borderRadius: Layout.floatingBar.borderRadius,
-          elevation: Layout.floatingBar.elevation,
+          height: 80,
+          borderRadius: 32,
+          elevation: 4,
           shadowColor: '#000',
-          shadowOffset: Layout.floatingBar.shadowOffset,
-          shadowOpacity: Layout.floatingBar.shadowOpacity,
-          shadowRadius: Layout.floatingBar.shadowRadius,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          borderTopWidth: 0,
+          overflow: 'hidden',
         },
         tabBarContentContainerStyle: {
-          height: 64,
+          height: 80,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
+          fontSize: 12,
+          fontWeight: 'bold',
           textTransform: 'none',
+          marginBottom: 12,
         },
         tabBarItemStyle: {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          paddingTop: 14,
         },
       }}>
       <MaterialTopTabs.Screen
         name="index"
         options={{
           title: 'Play',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <MaterialCommunityIcons name="gamepad-variant" size={24} color={color} />
+          tabBarIcon: ({ color, focused }: { color: string, focused: boolean }) => (
+            <View style={{
+              backgroundColor: focused ? theme.colors.secondaryContainer : 'transparent',
+              paddingHorizontal: 20,
+              paddingVertical: 4,
+              borderRadius: 16,
+              marginBottom: 0,
+              marginTop: 5,
+            }}>
+              <MaterialCommunityIcons name={focused ? "gamepad-variant" : "gamepad-variant-outline"} size={24} color={color} />
+            </View>
           ),
         }}
       />
@@ -69,8 +82,17 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: 'Categories',
-          tabBarIcon: ({ color }: { color: string }) => (
-            <MaterialCommunityIcons name="view-grid-plus" size={24} color={color} />
+          tabBarIcon: ({ color, focused }: { color: string, focused: boolean }) => (
+            <View style={{
+              backgroundColor: focused ? theme.colors.secondaryContainer : 'transparent',
+              paddingHorizontal: 20,
+              paddingVertical: 4,
+              borderRadius: 16,
+              marginBottom: 0,
+              marginTop: 5,
+            }}>
+              <MaterialCommunityIcons name={focused ? "view-grid-plus" : "view-grid-plus-outline"} size={24} color={color} />
+            </View>
           ),
         }}
       />

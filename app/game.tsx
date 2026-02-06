@@ -3,11 +3,15 @@
  * Uses React Native Paper with pass-the-phone voting
  */
 
+import { PhaseTransition } from '@/components/animated/PhaseTransition';
+import { ScalableButton } from '@/components/animated/ScalableButton';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { Layout } from '@/constants/theme';
 import { GamePhase, useGame } from '@/contexts/game-context';
+import * as Haptics from 'expo-haptics';
 import { router, useRootNavigationState } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { LayoutAnimation, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import {
     Avatar,
     Button,
@@ -18,21 +22,17 @@ import {
     ProgressBar,
     Surface,
     Text,
-    useTheme,
+    useTheme
 } from 'react-native-paper';
-
-// UIManager setup removed to prevent no-op warnings in New Architecture
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function GameScreen() {
     const { phase } = useGame();
-
     const rootNavigationState = useRootNavigationState();
 
     // Redirect based on game phase
     useEffect(() => {
         if (!rootNavigationState?.key) return;
-
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
         if (phase === GamePhase.SETUP || phase === GamePhase.PLAYER_SETUP) {
             router.replace('/(tabs)');
@@ -43,9 +43,9 @@ export default function GameScreen() {
 
     return (
         <View style={styles.container}>
-            {phase === GamePhase.DISCUSSION && <DiscussionView />}
-            {phase === GamePhase.VOTING && <VotingView />}
-            {phase === GamePhase.RESULTS && <ResultsView />}
+            {phase === GamePhase.DISCUSSION && <DiscussionView key="discussion" />}
+            {phase === GamePhase.VOTING && <VotingView key="voting" />}
+            {phase === GamePhase.RESULTS && <ResultsView key="results" />}
         </View>
     );
 }
@@ -57,74 +57,69 @@ function DiscussionView() {
     const startingPlayer = startingPlayerIndex !== null ? players[startingPlayerIndex] : null;
 
     return (
-        <View style={styles.phaseContainer}>
+        <PhaseTransition type="fade" style={styles.phaseContainer}>
             <View style={styles.header}>
                 <Avatar.Icon
-                    size={64}
-                    icon="forum"
+                    size={72}
+                    icon="forum-outline"
                     style={{ backgroundColor: theme.colors.primaryContainer }}
+                    color={theme.colors.onPrimaryContainer}
                 />
-                <Text variant="headlineMedium" style={styles.phaseTitle}>
-                    Discussion Time
+                <Text variant="displaySmall" style={[styles.phaseTitle, { color: theme.colors.primary }]}>
+                    Discussion
                 </Text>
-                <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', opacity: 0.8 }}>
                     Find the imposter among {players.length} players!
                 </Text>
             </View>
 
             {startingPlayer && (
-                <Card style={styles.card} mode="outlined">
+                <Card style={[styles.card, { borderRadius: 20 }]} mode="contained">
                     <Card.Content style={styles.startingPlayerCard}>
                         <Avatar.Icon
-                            size={40}
-                            icon="account-arrow-right"
+                            size={44}
+                            icon="account-voice"
                             style={{ backgroundColor: theme.colors.secondaryContainer }}
                         />
-                        <View style={{ marginLeft: 12 }}>
-                            <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                                Starting Player
+                        <View style={{ marginLeft: 16 }}>
+                            <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, letterSpacing: 0.5 }}>
+                                STARTING PLAYER
                             </Text>
-                            <Text variant="titleMedium">{startingPlayer.name}</Text>
+                            <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>{startingPlayer.name}</Text>
                         </View>
                     </Card.Content>
                 </Card>
             )}
 
             <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
-                <Card mode="elevated" style={styles.card}>
+                <Card mode="elevated" style={[styles.card, { borderRadius: 28, overflow: 'hidden' }]}>
                     {players.map((p, index) => (
                         <List.Item
                             key={p.id}
                             title={p.name}
+                            titleStyle={{ fontWeight: '600' }}
                             description={`${p.score} points`}
                             left={props => (
-                                <Avatar.Text
-                                    {...props}
-                                    size={40}
-                                    label={p.name.charAt(0).toUpperCase()}
-                                    style={{
-                                        backgroundColor: theme.colors.primaryContainer,
-                                        marginLeft: 12
-                                    }}
-                                    labelStyle={{ color: theme.colors.onPrimaryContainer }}
-                                />
+                                <View style={{ paddingLeft: 16, justifyContent: 'center' }}>
+                                    <PlayerAvatar
+                                        name={p.name}
+                                        size={48}
+                                    />
+                                </View>
                             )}
                             right={props =>
                                 startingPlayerIndex === index ? (
-                                    <View style={{ justifyContent: 'center', marginRight: 12 }}>
+                                    <View style={{ justifyContent: 'center' }}>
                                         <Chip
                                             {...props}
                                             compact
-                                            icon="flag-checkered"
+                                            icon="microphone"
                                             style={{
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
-                                                height: 28,
+                                                backgroundColor: theme.colors.tertiaryContainer,
                                             }}
                                             textStyle={{
-                                                fontSize: 12,
-                                                lineHeight: 14,
-                                                marginVertical: 0,
+                                                color: theme.colors.onTertiaryContainer,
+                                                fontWeight: 'bold'
                                             }}
                                         >
                                             First
@@ -138,18 +133,20 @@ function DiscussionView() {
             </ScrollView>
 
             <View style={styles.buttonContainer}>
-                <Button
-                    mode="contained"
-                    onPress={startDiscussion}
-                    style={styles.actionButton}
-                    contentStyle={styles.buttonContent}
-                    labelStyle={styles.actionButtonLabel}
-                    icon="vote"
-                >
-                    Start Voting
-                </Button>
+                <ScalableButton onPress={startDiscussion} style={styles.actionButton}>
+                    <Button
+                        mode="contained"
+                        style={styles.fullWidth}
+                        contentStyle={styles.buttonContent}
+                        labelStyle={styles.actionButtonLabel}
+                        icon="vote"
+                        pointerEvents="none"
+                    >
+                        Start Voting
+                    </Button>
+                </ScalableButton>
             </View>
-        </View>
+        </PhaseTransition>
     );
 }
 
@@ -159,7 +156,6 @@ function VotingView() {
     const {
         players,
         currentVoterIndex,
-        votes,
         castVote,
         nextVoter,
         submitVotes,
@@ -183,7 +179,6 @@ function VotingView() {
         setSelectedTarget(null);
 
         if (isLastVoter) {
-            // All votes cast, submit
             submitVotes();
         } else {
             nextVoter();
@@ -201,47 +196,50 @@ function VotingView() {
 
     if (showPassPhone) {
         return (
-            <View style={styles.phaseContainer}>
+            <PhaseTransition key="pass-phone" type="slide" style={styles.phaseContainer}>
                 <View style={styles.passPhoneContainer}>
                     <Surface style={styles.passPhoneCard} elevation={2}>
-                        <Avatar.Icon
-                            size={80}
-                            icon="cellphone-arrow-down"
-                            style={{ backgroundColor: theme.colors.primaryContainer }}
-                        />
-                        <Text variant="headlineMedium" style={[styles.phaseTitle, { marginTop: 24 }]}>
-                            Pass the Phone
+                        <PlayerAvatar name={currentVoter.name} size={100} />
+                        <Text variant="displaySmall" style={[styles.phaseTitle, { marginTop: 28, color: theme.colors.primary }]}>
+                            Voting Phase
                         </Text>
-                        <Text variant="titleMedium" style={{ color: theme.colors.primary, marginTop: 8 }}>
+                        <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 8 }}>
                             To: {currentVoter.name}
                         </Text>
-                        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 16 }}>
-                            Please hand the device to the next player securely.
+                        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 16, opacity: 0.8 }}>
+                            Pass the phone to {currentVoter.name} to cast their secret vote.
                         </Text>
 
-                        <Button
-                            mode="contained"
+                        <ScalableButton
                             onPress={handlePassPhone}
                             style={{
                                 marginTop: 32,
                                 width: '100%',
-                                height: Layout.floatingBar.height,
-                                borderRadius: Layout.floatingBar.borderRadius,
                             }}
-                            contentStyle={styles.buttonContent}
-                            labelStyle={styles.actionButtonLabel}
-                            icon="account-arrow-right"
                         >
-                            I am {currentVoter.name}
-                        </Button>
+                            <Button
+                                mode="contained"
+                                style={{
+                                    width: '100%',
+                                    height: Layout.floatingBar.height,
+                                    borderRadius: Layout.floatingBar.borderRadius,
+                                }}
+                                contentStyle={styles.buttonContent}
+                                labelStyle={styles.actionButtonLabel}
+                                icon="account-arrow-right"
+                                pointerEvents="none"
+                            >
+                                I am {currentVoter.name}
+                            </Button>
+                        </ScalableButton>
                     </Surface>
                 </View>
-            </View>
+            </PhaseTransition>
         );
     }
 
     return (
-        <View style={styles.phaseContainer}>
+        <PhaseTransition type="fade" style={styles.phaseContainer}>
             {/* Progress Header */}
             <View style={styles.progressHeader}>
                 <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant }}>
@@ -255,17 +253,17 @@ function VotingView() {
             </View>
 
             {/* Current Voter */}
-            <Card style={styles.voterCard} mode="elevated">
+            <Card style={[styles.voterCard, { borderRadius: 24 }]} mode="elevated">
                 <Card.Content style={styles.voterContent}>
-                    <Avatar.Text
-                        size={56}
-                        label={currentVoter.name.charAt(0).toUpperCase()}
+                    <PlayerAvatar
+                        size={64}
+                        name={currentVoter.name}
                     />
-                    <View style={{ marginLeft: 16, flex: 1 }}>
-                        <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                            Now Voting
+                    <View style={{ marginLeft: 20, flex: 1 }}>
+                        <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold', letterSpacing: 1 }}>
+                            CURRENT VOTER
                         </Text>
-                        <Text variant="headlineSmall">{currentVoter.name}</Text>
+                        <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>{currentVoter.name}</Text>
                     </View>
                 </Card.Content>
             </Card>
@@ -279,39 +277,46 @@ function VotingView() {
                 <View style={styles.voteGrid}>
                     {players
                         .filter(p => p.id !== currentVoter.id)
-                        .map(p => {
+                        .map((p, index) => {
                             const isSelected = selectedTarget === p.id;
                             return (
-                                <Card
+                                <Animated.View
                                     key={p.id}
-                                    style={[
-                                        styles.voteTargetCard,
-                                        isSelected && { borderColor: theme.colors.primary, borderWidth: 2 }
-                                    ]}
-                                    mode={isSelected ? 'elevated' : 'outlined'}
-                                    onPress={() => setSelectedTarget(p.id)}
+                                    entering={FadeInDown.delay(index * 50).duration(400)}
+                                    style={styles.voteTargetCard}
                                 >
-                                    <Card.Content style={styles.voteTargetContent}>
-                                        <Avatar.Text
-                                            size={48}
-                                            label={p.name.charAt(0).toUpperCase()}
-                                            style={{
-                                                backgroundColor: isSelected
-                                                    ? theme.colors.primary
-                                                    : theme.colors.surfaceVariant
-                                            }}
-                                        />
-                                        <Text
-                                            variant="labelLarge"
+                                    <ScalableButton
+                                        onPress={() => {
+                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                            setSelectedTarget(p.id);
+                                        }}
+                                    >
+                                        <Card
                                             style={[
-                                                styles.voteTargetName,
-                                                isSelected && { color: theme.colors.primary }
+                                                styles.fullWidth,
+                                                { borderRadius: 24 },
+                                                isSelected && { borderColor: theme.colors.primary, borderWidth: 3 }
                                             ]}
+                                            mode={isSelected ? 'elevated' : 'contained'}
                                         >
-                                            {p.name}
-                                        </Text>
-                                    </Card.Content>
-                                </Card>
+                                            <Card.Content style={styles.voteTargetContent}>
+                                                <PlayerAvatar
+                                                    name={p.name}
+                                                    size={56}
+                                                />
+                                                <Text
+                                                    variant="titleMedium"
+                                                    style={[
+                                                        styles.voteTargetName,
+                                                        isSelected && { color: theme.colors.primary, fontWeight: 'bold' }
+                                                    ]}
+                                                >
+                                                    {p.name}
+                                                </Text>
+                                            </Card.Content>
+                                        </Card>
+                                    </ScalableButton>
+                                </Animated.View>
                             );
                         })}
                 </View>
@@ -319,22 +324,28 @@ function VotingView() {
 
             {/* Submit Vote Button */}
             <View style={styles.buttonContainer}>
-                <Button
-                    mode="contained"
+                <ScalableButton
                     onPress={handleVote}
                     disabled={!selectedTarget}
                     style={styles.actionButton}
-                    contentStyle={styles.buttonContent}
-                    labelStyle={styles.actionButtonLabel}
-                    icon="check-circle"
                 >
-                    {isLastVoter
-                        ? 'Submit Final Vote'
-                        : `Confirm & Pass to ${nextVoterName}`
-                    }
-                </Button>
+                    <Button
+                        mode="contained"
+                        disabled={!selectedTarget}
+                        style={styles.fullWidth}
+                        contentStyle={styles.buttonContent}
+                        labelStyle={styles.actionButtonLabel}
+                        icon="check-circle"
+                        pointerEvents="none"
+                    >
+                        {isLastVoter
+                            ? 'Submit Final Vote'
+                            : `Confirm & Pass to ${nextVoterName}`
+                        }
+                    </Button>
+                </ScalableButton>
             </View>
-        </View>
+        </PhaseTransition>
     );
 }
 
@@ -362,7 +373,6 @@ function ResultsView() {
     });
 
     // Check if any imposter was caught
-    const imposterIds = imposters.map(i => i.id);
     const caughtImposters = imposters.filter(imp => {
         const voteCount = voteCounts[imp.id] || 0;
         const maxVotes = Math.max(...Object.values(voteCounts), 0);
@@ -375,28 +385,31 @@ function ResultsView() {
     const leaderboard = [...players].sort((a, b) => b.score - a.score);
 
     return (
-        <View style={styles.phaseContainer}>
+        <PhaseTransition type="fade" style={styles.phaseContainer}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.resultsContent}>
                 {/* Result Banner */}
                 <Card
                     style={[styles.resultBanner, {
-                        backgroundColor: imposterWins ? theme.colors.errorContainer : theme.colors.primaryContainer
+                        backgroundColor: imposterWins ? theme.colors.errorContainer : theme.colors.primaryContainer,
+                        borderRadius: 28
                     }]}
                     mode="contained"
                 >
                     <Card.Content style={styles.resultBannerContent}>
                         <Avatar.Icon
-                            size={64}
+                            size={80}
                             icon={imposterWins ? 'incognito' : 'trophy'}
                             style={{
                                 backgroundColor: imposterWins ? theme.colors.error : theme.colors.primary
                             }}
+                            color={imposterWins ? theme.colors.onError : theme.colors.onPrimary}
                         />
                         <Text
-                            variant="headlineMedium"
+                            variant="displaySmall"
                             style={{
-                                marginTop: 16,
-                                color: imposterWins ? theme.colors.onErrorContainer : theme.colors.onPrimaryContainer
+                                marginTop: 20,
+                                fontWeight: 'bold',
+                                color: imposterWins ? theme.colors.error : theme.colors.primary
                             }}
                         >
                             {imposterWins ? 'Imposter Wins!' : 'Town Wins!'}
@@ -405,39 +418,40 @@ function ResultsView() {
                 </Card>
 
                 {/* Imposter Reveal */}
-                <Card style={styles.card} mode="elevated">
+                <Card style={{ marginBottom: 24, borderRadius: 24 }} mode="elevated">
                     <Card.Content>
-                        <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant }}>
-                            {imposters.length === 1 ? 'The Imposter was' : 'The Imposters were'}
+                        <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant, letterSpacing: 1 }}>
+                            {imposters.length === 1 ? 'THE IMPOSTER' : 'THE IMPOSTERS'}
                         </Text>
                         <View style={styles.imposterList}>
                             {imposters.map(imp => (
                                 <Chip
                                     key={imp.id}
                                     icon="incognito"
-                                    style={styles.imposterChip}
-                                    textStyle={{ fontWeight: 'bold' }}
+                                    style={[styles.imposterChip, { backgroundColor: theme.colors.errorContainer }]}
+                                    textStyle={{ fontWeight: 'bold', color: theme.colors.onErrorContainer }}
                                 >
                                     {imp.name}
                                 </Chip>
                             ))}
                         </View>
-                        <Divider style={{ marginVertical: 16 }} />
+                        <Divider style={{ marginVertical: 20 }} />
                         <View style={styles.wordReveal}>
                             <View style={styles.wordColumn}>
-                                <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                                    Real Word
+                                <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>
+                                    REAL WORD
                                 </Text>
-                                <Text variant="titleLarge" style={{ color: theme.colors.primary }}>
+                                <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
                                     {realWord}
                                 </Text>
                             </View>
+                            <Divider style={{ height: 40, width: 1 }} />
                             <View style={styles.wordColumn}>
-                                <Text variant="labelMedium" style={{ color: theme.colors.error }}>
-                                    {imposterWordMode === 'no_word' ? 'Imposter Word' : 'False Word'}
+                                <Text variant="labelSmall" style={{ color: theme.colors.error, marginBottom: 4 }}>
+                                    {imposterWordMode === 'no_word' ? 'IMPOSTER WORD' : 'FALSE WORD'}
                                 </Text>
-                                <Text variant="titleLarge" style={{ color: theme.colors.error }}>
-                                    {imposterWordMode === 'no_word' ? '(hidden)' : imposterWord}
+                                <Text variant="headlineSmall" style={{ color: theme.colors.error, fontWeight: 'bold' }}>
+                                    {imposterWordMode === 'no_word' ? '???' : imposterWord}
                                 </Text>
                             </View>
                         </View>
@@ -445,65 +459,91 @@ function ResultsView() {
                 </Card>
 
                 {/* Leaderboard */}
-                <Text variant="titleLarge" style={styles.sectionTitle}>
-                    Leaderboard
-                </Text>
-                <Card mode="outlined">
-                    {leaderboard.map((p, index) => (
-                        <List.Item
-                            key={p.id}
-                            title={p.name}
-                            description={p.isImposter ? 'Imposter' : undefined}
-                            left={props => (
-                                <View style={styles.rankBadge}>
-                                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>
-                                        #{index + 1}
-                                    </Text>
-                                </View>
-                            )}
-                            right={props => (
-                                <Chip
-                                    {...props}
-                                    icon={index === 0 ? 'crown' : 'star'}
-                                    mode={index === 0 ? 'flat' : 'outlined'}
-                                >
-                                    {p.score} pts
-                                </Chip>
-                            )}
-                        />
-                    ))}
+                <View style={styles.sectionHeader}>
+                    <Text variant="titleLarge" style={styles.sectionTitle}>
+                        Leaderboard
+                    </Text>
+                    <Avatar.Icon size={32} icon="medal" style={{ backgroundColor: 'transparent' }} />
+                </View>
+
+                <Card mode="contained" style={styles.leaderboardCard}>
+                    {leaderboard.map((p, index) => {
+                        const isImposter = imposterIndices.includes(players.findIndex(player => player.id === p.id));
+                        const isWinner = index === 0;
+                        const rankColor = index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : theme.colors.outline;
+
+                        return (
+                            <View key={p.id}>
+                                <List.Item
+                                    title={p.name}
+                                    titleStyle={[isWinner && { fontWeight: 'bold', color: theme.colors.primary }]}
+                                    description={isImposter ? (caughtImposters.some(c => c.id === p.id) ? 'Caught Imposter' : 'Escaped Imposter') : 'Townsperson'}
+                                    left={props => (
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 30 }}>
+                                            <Text
+                                                variant="headlineSmall"
+                                                style={[styles.rankText, { color: rankColor, width: 32, textAlign: 'center' }]}
+                                            >
+                                                {index + 1}
+                                            </Text>
+                                            <PlayerAvatar name={p.name} size={44} style={{ marginLeft: 16 }} />
+                                        </View>
+                                    )}
+                                    right={props => (
+                                        <View style={styles.scoreContainer}>
+                                            <Text variant="titleLarge" style={styles.scoreText}>
+                                                {p.score}
+                                            </Text>
+                                            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, fontWeight: 'bold' }}>PTS</Text>
+                                        </View>
+                                    )}
+                                    style={styles.leaderboardItem}
+                                />
+                                {index < leaderboard.length - 1 && <Divider horizontalInset />}
+                            </View>
+                        );
+                    })}
                 </Card>
 
                 <View style={{ height: 120 }} />
             </ScrollView>
-
             {/* Action Buttons */}
             <View style={styles.buttonRow}>
-                <Button
-                    mode="outlined"
+                <ScalableButton
                     onPress={endGame}
                     style={styles.halfButton}
-                    contentStyle={styles.buttonContent}
-                    labelStyle={styles.halfButtonLabel}
-                    icon="stop"
                 >
-                    End Game
-                </Button>
-                <Button
-                    mode="contained"
+                    <Button
+                        mode="outlined"
+                        textColor={theme.colors.error}
+                        style={[styles.fullWidth, { borderColor: theme.colors.error }]}
+                        contentStyle={styles.buttonContent}
+                        labelStyle={styles.halfButtonLabel}
+                        icon="pause"
+                    >
+                        End Game
+                    </Button>
+                </ScalableButton>
+                <ScalableButton
                     onPress={() => {
                         nextRound();
                         router.replace('/reveal');
                     }}
                     style={styles.halfButton}
-                    contentStyle={styles.buttonContent}
-                    labelStyle={styles.halfButtonLabel}
-                    icon="arrow-right"
                 >
-                    Next Round
-                </Button>
+                    <Button
+                        mode="contained"
+                        style={styles.fullWidth}
+                        contentStyle={styles.buttonContent}
+                        labelStyle={styles.halfButtonLabel}
+                        icon="arrow-right"
+                        pointerEvents="none"
+                    >
+                        Next Round
+                    </Button>
+                </ScalableButton>
             </View>
-        </View>
+        </PhaseTransition>
     );
 }
 
@@ -544,7 +584,6 @@ const styles = StyleSheet.create({
     },
     playerList: {
         flex: 1,
-        paddingHorizontal: 16,
     },
     voterCard: {
         marginHorizontal: 20,
@@ -565,17 +604,21 @@ const styles = StyleSheet.create({
     voteGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
+        justifyContent: 'space-between',
+        paddingBottom: 20,
     },
     voteTargetCard: {
-        width: '47%',
+        width: '48%',
+        marginBottom: 12,
     },
     voteTargetContent: {
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: 20,
     },
     voteTargetName: {
         marginTop: 8,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
     passPhoneContainer: {
         flex: 1,
@@ -602,6 +645,7 @@ const styles = StyleSheet.create({
     imposterList: {
         flexDirection: 'row',
         flexWrap: 'wrap',
+        justifyContent: 'center',
         gap: 8,
         marginTop: 8,
     },
@@ -616,8 +660,40 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     sectionTitle: {
-        marginTop: 16,
+        fontWeight: 'bold',
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 24,
         marginBottom: 12,
+        paddingHorizontal: 4,
+    },
+    leaderboardCard: {
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    leaderboardItem: {
+        paddingVertical: 8,
+    },
+    rankContainer: {
+        width: 48,
+        height: 48,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 20,
+    },
+    rankText: {
+        fontWeight: '900',
+    },
+    scoreContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+        minWidth: 50,
+    },
+    scoreText: {
         fontWeight: 'bold',
     },
     rankBadge: {
@@ -656,25 +732,30 @@ const styles = StyleSheet.create({
     },
     actionButton: {
         flex: 1,
-        borderRadius: Layout.floatingBar.borderRadius,
+        borderRadius: 32,
         height: '100%',
+    },
+    fullWidth: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 32,
         justifyContent: 'center',
     },
     halfButton: {
         flex: 1,
-        borderRadius: Layout.floatingBar.borderRadius,
+        borderRadius: 32,
         height: '100%',
         justifyContent: 'center',
     },
     actionButtonLabel: {
-        fontSize: 15,
-        fontWeight: '600',
-        letterSpacing: 0.25,
+        fontSize: 16,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
     },
     halfButtonLabel: {
-        fontSize: 15,
-        fontWeight: '600',
-        letterSpacing: 0.25,
+        fontSize: 16,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
     },
     buttonContent: {
         height: '100%',

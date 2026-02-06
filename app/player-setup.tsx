@@ -2,8 +2,9 @@
  * Player Setup Screen - Pass-the-phone player registration
  */
 
-import { Layout } from '@/constants/theme';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { GamePhase, useGame } from '@/contexts/game-context';
+import * as Haptics from 'expo-haptics';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -27,6 +28,7 @@ export default function PlayerSetupScreen() {
         removePlayer,
         phase,
         completePlayerSetup,
+        startGame,
     } = useGame();
 
     const [currentName, setCurrentName] = useState('');
@@ -34,20 +36,24 @@ export default function PlayerSetupScreen() {
 
     const handleAddPlayer = () => {
         if (currentName.trim()) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             addPlayer(currentName.trim());
             setCurrentName('');
             setIsEntering(false);
+        } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
     };
 
     const handleNextPlayer = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setIsEntering(true);
     };
 
     const handleStartGame = () => {
         if (players.length >= 3) {
-            completePlayerSetup();
-            router.replace('/(tabs)');
+            startGame();
+            router.replace('/reveal');
         }
     };
 
@@ -55,7 +61,7 @@ export default function PlayerSetupScreen() {
     const isInitialSetup = phase === GamePhase.PLAYER_SETUP;
 
     // Redirect if not in player setup or lobby setup phase
-    if (phase !== GamePhase.PLAYER_SETUP && phase !== GamePhase.SETUP) {
+    if (phase !== GamePhase.PLAYER_SETUP && phase !== GamePhase.SETUP && phase !== GamePhase.REVEAL) {
         return <Redirect href="/(tabs)" />;
     }
 
@@ -65,45 +71,55 @@ export default function PlayerSetupScreen() {
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text variant="headlineLarge" style={styles.title}>
+                    <Text variant="displaySmall" style={[styles.title, { color: theme.colors.primary }]}>
                         Player Setup
                     </Text>
-                    <Text variant="bodyLarge" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-                        Pass the phone to each player to enter their name
+                    <Text variant="titleMedium" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant, opacity: 0.8 }]}>
+                        Add everyone to get started
                     </Text>
                 </View>
 
                 {/* Current Player Input */}
                 {isEntering ? (
                     <Card style={styles.inputCard} mode="elevated">
-                        <Card.Content>
-                            <Text variant="titleMedium" style={styles.cardTitle}>
-                                Player {players.length + 1}
-                            </Text>
-                            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}>
-                                Enter your name and pass the phone to the next player
-                            </Text>
+                        <Card.Content style={{ padding: 8 }}>
+                            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                                <Avatar.Icon
+                                    size={56}
+                                    icon="account-plus"
+                                    style={{ backgroundColor: theme.colors.primaryContainer }}
+                                    color={theme.colors.onPrimaryContainer}
+                                />
+                                <Text variant="headlineSmall" style={{ marginTop: 12, fontWeight: 'bold' }}>
+                                    Player {players.length + 1}
+                                </Text>
+                            </View>
+
                             <TextInput
                                 mode="outlined"
-                                label="Your Name"
+                                label="Enter Name"
+                                placeholder="e.g. Charlie"
                                 value={currentName}
                                 onChangeText={setCurrentName}
                                 autoFocus
                                 onSubmitEditing={handleAddPlayer}
                                 style={styles.input}
-                                left={<TextInput.Icon icon="account" />}
+                                outlineStyle={{ borderRadius: 16 }}
                             />
                             <Button
                                 mode="contained"
                                 onPress={handleAddPlayer}
                                 disabled={!currentName.trim()}
                                 style={styles.addButton}
+                                contentStyle={{ height: 56 }}
+                                labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
                                 icon="check"
                             >
-                                Confirm Name
+                                Confirm & Pass
                             </Button>
                         </Card.Content>
                     </Card>
@@ -111,26 +127,28 @@ export default function PlayerSetupScreen() {
                     <Card style={styles.inputCard} mode="elevated">
                         <Card.Content style={styles.passPhoneCard}>
                             <Avatar.Icon
-                                size={64}
+                                size={80}
                                 icon="cellphone-arrow-down"
                                 style={{ backgroundColor: theme.colors.primaryContainer }}
                             />
-                            <Text variant="titleLarge" style={{ marginTop: 16, textAlign: 'center' }}>
+                            <Text variant="headlineSmall" style={{ marginTop: 24, textAlign: 'center', fontWeight: 'bold' }}>
                                 Pass the phone
                             </Text>
                             <Text
-                                variant="bodyMedium"
-                                style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 8 }}
+                                variant="bodyLarge"
+                                style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 12 }}
                             >
-                                Hand the phone to the next player
+                                Hand the device to the next player
                             </Text>
                             <Button
                                 mode="contained"
                                 onPress={handleNextPlayer}
-                                style={{ marginTop: 24 }}
-                                icon="account-plus"
+                                style={{ marginTop: 32, width: '100%' }}
+                                contentStyle={{ height: 56 }}
+                                labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+                                icon="account-arrow-right"
                             >
-                                Next Player
+                                I have the phone
                             </Button>
                         </Card.Content>
                     </Card>
@@ -147,29 +165,32 @@ export default function PlayerSetupScreen() {
                                 {players.length}
                             </Chip>
                         </View>
-                        <Card mode="outlined">
+                        <Card mode="contained" style={{ borderRadius: 28 }}>
                             {players.map((player, index) => (
                                 <List.Item
                                     key={player.id}
                                     title={player.name}
+                                    titleStyle={{ fontWeight: '600' }}
                                     description={`Player ${index + 1}`}
                                     left={props => (
-                                        <Avatar.Text
+                                        <View style={{ justifyContent: 'center', paddingLeft: 25 }}>
+                                            <PlayerAvatar
+                                                name={player.name}
+                                                size={44}
+                                            />
+                                        </View>
+                                    )}
+                                    right={props => (
+                                        <IconButton
                                             {...props}
-                                            size={40}
-                                            label={player.name.charAt(0).toUpperCase()}
+                                            icon="delete-outline"
+                                            iconColor={theme.colors.error}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                removePlayer(player.id);
+                                            }}
                                         />
                                     )}
-                                    right={props =>
-                                        players.length > 3 && (
-                                            <IconButton
-                                                {...props}
-                                                icon="close-circle-outline"
-                                                iconColor={theme.colors.error}
-                                                onPress={() => removePlayer(player.id)}
-                                            />
-                                        )
-                                    }
                                 />
                             ))}
                         </Card>
@@ -208,10 +229,12 @@ export default function PlayerSetupScreen() {
                     contentStyle={styles.startButtonContent}
                     labelStyle={styles.startButtonLabel}
                     icon={isInitialSetup ? "play" : "check"}
+                    buttonColor={canStartGame ? theme.colors.primary : theme.colors.surfaceVariant}
+                    textColor={canStartGame ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
                 >
                     {isInitialSetup
-                        ? `Start Game with ${players.length} Players`
-                        : "Return to Lobby"
+                        ? `Start Match • ${players.length} Players`
+                        : "Done"
                     }
                 </Button>
             </View>
@@ -243,19 +266,22 @@ const styles = StyleSheet.create({
     },
     inputCard: {
         marginBottom: 24,
+        borderRadius: 28,
+        padding: 8,
     },
     cardTitle: {
         marginBottom: 8,
     },
     input: {
-        marginBottom: 16,
+        marginBottom: 20,
+        backgroundColor: 'transparent',
     },
     addButton: {
-        marginTop: 8,
+        borderRadius: 16,
     },
     passPhoneCard: {
         alignItems: 'center',
-        paddingVertical: 24,
+        paddingVertical: 32,
     },
     section: {
         marginBottom: 24,
@@ -264,40 +290,33 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
+        paddingHorizontal: 8,
     },
     noticeCard: {
         marginBottom: 24,
+        borderRadius: 20,
     },
     buttonContainer: {
         position: 'absolute',
-        bottom: Layout.floatingBar.bottom,
+        bottom: 32,
         left: 0,
         right: 0,
-        marginHorizontal: Layout.floatingBar.marginHorizontal,
-        height: Layout.floatingBar.height,
-        borderRadius: Layout.floatingBar.borderRadius,
-        backgroundColor: 'transparent',
-        shadowColor: '#000',
-        shadowOffset: Layout.floatingBar.shadowOffset,
-        shadowOpacity: Layout.floatingBar.shadowOpacity,
-        shadowRadius: Layout.floatingBar.shadowRadius,
+        marginHorizontal: 20,
+        height: 64,
     },
     startButton: {
         flex: 1,
-        borderRadius: Layout.floatingBar.borderRadius,
-        height: '100%',
-        justifyContent: 'center',
+        borderRadius: 32,
+        elevation: 4,
     },
     startButtonContent: {
         height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
         flexDirection: 'row-reverse',
     },
     startButtonLabel: {
-        fontSize: 15,
-        fontWeight: '600',
-        letterSpacing: 0.25,
+        fontSize: 16,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
     },
 });

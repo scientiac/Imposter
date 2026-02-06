@@ -3,8 +3,11 @@
  * Now uses React Native Paper with Material You design
  */
 
+import { ScalableButton } from '@/components/animated/ScalableButton';
+import { PlayerAvatar } from '@/components/ui/PlayerAvatar';
 import { GamePhase, useGame } from '@/contexts/game-context';
 import { PREDEFINED_CATEGORIES } from '@/data/game-data';
+import * as Haptics from 'expo-haptics';
 import { Redirect, router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import {
@@ -16,12 +19,19 @@ import {
   Text,
   useTheme
 } from 'react-native-paper';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 // Map category icons to Material icons
 const categoryIconMap: Record<string, string> = {
-  '🍔': 'food',
+  '🍕': 'pizza',
   '⚽': 'soccer',
   '🎬': 'movie-open',
+  '🌍': 'earth',
+  '🐾': 'paw',
+  '👔': 'briefcase',
+  '📦': 'package-variant',
+  '🌲': 'tree',
+  '🍔': 'food',
   '🎵': 'music',
   '🐕': 'dog',
   '🏛️': 'city',
@@ -29,7 +39,6 @@ const categoryIconMap: Record<string, string> = {
   '📚': 'book',
   '💼': 'briefcase',
   '🎮': 'gamepad-variant',
-  '🌍': 'earth',
   '🧪': 'flask',
 };
 
@@ -105,84 +114,114 @@ export default function LobbyScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="headlineLarge" style={styles.title}>
+          <Text variant="displaySmall" style={[styles.title, { color: theme.colors.primary }]}>
             Game Lobby
           </Text>
-          <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>
-            Select categories to play
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, opacity: 0.8 }}>
+            Select categories for the next round
           </Text>
         </View>
 
         {/* Players Summary Card */}
-        <Card style={styles.card} mode="elevated" onPress={handleManagePlayers}>
-          <Card.Content style={styles.playerSummary}>
-            <View style={styles.playerSummaryLeft}>
-              <View style={styles.avatarStack}>
-                {players.slice(0, 3).map((player, index) => (
-                  <Avatar.Text
-                    key={player.id}
-                    size={36}
-                    label={player.name.charAt(0).toUpperCase()}
-                    style={[
-                      styles.stackedAvatar,
-                      {
-                        marginLeft: index === 0 ? 0 : -12,
-                        borderColor: theme.colors.surface,
-                        zIndex: 10 - index
-                      }
-                    ]}
-                  />
-                ))}
-                {players.length > 3 && (
-                  <Avatar.Text
-                    size={36}
-                    label={`+${players.length - 3}`}
-                    style={[
-                      styles.stackedAvatar,
-                      {
-                        marginLeft: -12,
-                        borderColor: theme.colors.surface
-                      }
-                    ]}
-                    labelStyle={{ fontSize: 12 }}
-                  />
-                )}
+        <ScalableButton style={styles.card} onPress={handleManagePlayers}>
+          <Card mode="elevated">
+            <Card.Content style={styles.playerSummary}>
+              <View style={styles.playerSummaryLeft}>
+                <View style={styles.avatarStack}>
+                  {players.slice(0, 3).map((player, index) => (
+                    <PlayerAvatar
+                      key={player.id}
+                      name={player.name}
+                      size={40}
+                      style={[
+                        styles.stackedAvatar,
+                        {
+                          marginLeft: index === 0 ? 0 : -16,
+                          borderColor: theme.colors.surface,
+                          zIndex: 10 - index
+                        }
+                      ]}
+                    />
+                  ))}
+                  {players.length > 3 && (
+                    <Avatar.Text
+                      size={36}
+                      label={`+${players.length - 3}`}
+                      style={[
+                        styles.stackedAvatar,
+                        {
+                          marginLeft: -12,
+                          borderColor: theme.colors.surface
+                        }
+                      ]}
+                      labelStyle={{
+                        fontSize: 12,
+                        textAlign: 'center',
+                        textAlignVertical: 'center',
+                        includeFontPadding: false
+                      }}
+                    />
+                  )}
+                </View>
+                <View style={[styles.playerInfo, { flex: 1 }]}>
+                  <Text variant="titleMedium">{players.length} Players</Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    Tap to manage
+                  </Text>
+                </View>
+                <IconButton
+                  icon="chevron-right"
+                  size={24}
+                  iconColor={theme.colors.onSurfaceVariant}
+                />
               </View>
-              <View style={styles.playerInfo}>
-                <Text variant="titleMedium">{players.length} Players</Text>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Tap to manage
-                </Text>
-              </View>
-            </View>
-            <IconButton icon="chevron-right" />
-          </Card.Content>
-        </Card>
+            </Card.Content>
+          </Card>
+        </ScalableButton>
 
         {/* Game Settings Card */}
-        <Card style={styles.card} mode="outlined" onPress={handleSettings}>
-          <Card.Content>
-            <View style={styles.settingsRow}>
-              <Avatar.Icon
-                size={40}
-                icon="cog"
-                style={{ backgroundColor: theme.colors.secondaryContainer }}
-              />
-              <View style={styles.settingsInfo}>
-                <Text variant="titleMedium">Game Settings</Text>
-                <View style={styles.settingsChips}>
-                  <Chip compact icon="account-eye" style={styles.chip}>
-                    {imposterCount} {imposterCount === 1 ? 'Imposter' : 'Imposters'}
-                  </Chip>
-                  <Chip compact icon="eye" style={styles.chip}>
-                    {getModeLabel()}
-                  </Chip>
+        <ScalableButton style={styles.card} onPress={handleSettings}>
+          <Card mode="contained" style={{ backgroundColor: theme.colors.secondaryContainer, borderRadius: 28, borderWidth: 0 }}>
+            <Card.Content style={{ paddingVertical: 12 }}>
+              <View style={styles.settingsRow}>
+                <Avatar.Icon
+                  size={44}
+                  icon="cog-outline"
+                  style={{ backgroundColor: theme.colors.onSecondaryContainer, alignSelf: 'center' }}
+                  color={theme.colors.secondaryContainer}
+                />
+                <View style={styles.settingsInfo}>
+                  <Text variant="titleMedium" style={{ color: theme.colors.onSecondaryContainer, fontWeight: 'bold', marginBottom: 4 }}>
+                    Match Configuration
+                  </Text>
+                  <View style={styles.settingsChips}>
+                    <Chip
+                      compact
+                      icon="account-group"
+                      style={[styles.smallChip, { backgroundColor: theme.colors.surface }]}
+                      textStyle={{ color: theme.colors.onSurface, fontWeight: '600' }}
+                    >
+                      {imposterCount} {imposterCount === 1 ? 'Imposter' : 'Imposters'}
+                    </Chip>
+                    <Chip
+                      compact
+                      icon="incognito-circle"
+                      style={[styles.smallChip, { backgroundColor: theme.colors.surface }]}
+                      textStyle={{ color: theme.colors.onSurface, fontWeight: '600' }}
+                    >
+                      {getModeLabel()}
+                    </Chip>
+                  </View>
                 </View>
+                <IconButton
+                  icon="tune-variant"
+                  size={24}
+                  iconColor={theme.colors.onSecondaryContainer}
+                />
               </View>
-              <IconButton icon="chevron-right" />
-            </View>
-          </Card.Content>
-        </Card>
+            </Card.Content>
+          </Card>
+        </ScalableButton>
 
         {/* Category Selection */}
         <View style={styles.section}>
@@ -196,54 +235,68 @@ export default function LobbyScreen() {
           </View>
 
           <View style={styles.categoryGrid}>
-            {allCategories.map((category) => {
+            {allCategories.map((category, index) => {
               const isSelected = selectedCategories.some(c => c.id === category.id);
               return (
-                <Card
+                <Animated.View
                   key={category.id}
-                  style={[
-                    styles.categoryCard,
-                    isSelected && {
-                      borderColor: theme.colors.primary,
-                      borderWidth: 2,
-                    }
-                  ]}
-                  mode={isSelected ? 'elevated' : 'outlined'}
-                  onPress={() => toggleCategory(category)}
+                  entering={FadeInDown.delay(index * 50).duration(400)}
+                  style={styles.categoryCard}
                 >
-                  <Card.Content style={styles.categoryContent}>
-                    <Avatar.Icon
-                      size={48}
-                      icon={getCategoryIcon(category.icon)}
-                      style={{
-                        backgroundColor: isSelected
-                          ? theme.colors.primaryContainer
-                          : theme.colors.surfaceVariant
-                      }}
-                    />
-                    <Text
-                      variant="labelLarge"
+                  <ScalableButton
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      toggleCategory(category);
+                    }}
+                  >
+                    <Card
                       style={[
-                        styles.categoryName,
-                        isSelected && { color: theme.colors.primary }
+                        styles.fullWidth,
+                        { borderRadius: 24 },
+                        isSelected && {
+                          borderColor: theme.colors.primary,
+                          borderWidth: 2,
+                        }
                       ]}
-                      numberOfLines={1}
+                      mode={isSelected ? 'elevated' : 'contained'}
                     >
-                      {category.name}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {category.words.length} words
-                    </Text>
-                    {category.isCustom && (
-                      <Chip compact style={styles.customBadge}>
-                        Custom
-                      </Chip>
-                    )}
-                  </Card.Content>
-                </Card>
+                      <Card.Content style={styles.categoryContent}>
+                        <Avatar.Icon
+                          size={48}
+                          icon={getCategoryIcon(category.icon)}
+                          style={{
+                            backgroundColor: isSelected
+                              ? theme.colors.primaryContainer
+                              : theme.colors.surfaceVariant
+                          }}
+                        />
+                        <Text
+                          variant="labelLarge"
+                          style={[
+                            styles.categoryName,
+                            isSelected && { color: theme.colors.primary }
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {category.name}
+                        </Text>
+                        <Text
+                          variant="bodySmall"
+                          style={{ color: theme.colors.onSurfaceVariant }}
+                        >
+                          {category.words.length} words
+                        </Text>
+                        {category.isCustom && (
+                          <View style={styles.customBadgeContainer}>
+                            <View style={[styles.customBadge, { backgroundColor: theme.colors.tertiaryContainer }]}>
+                              <Text variant="labelSmall" style={{ color: theme.colors.onTertiaryContainer, fontWeight: '800' }}>CUSTOM</Text>
+                            </View>
+                          </View>
+                        )}
+                      </Card.Content>
+                    </Card>
+                  </ScalableButton>
+                </Animated.View>
               );
             })}
           </View>
@@ -269,9 +322,10 @@ export default function LobbyScreen() {
           label={isGameActive ? "Resume Game" : "Start Game"}
           style={[
             styles.fab,
-            !isGameActive && !canStartGame && { backgroundColor: theme.colors.surfaceDisabled }
+            { backgroundColor: !isGameActive && !canStartGame ? theme.colors.surfaceDisabled : theme.colors.primary }
           ]}
           onPress={handleStartGame}
+          color={!isGameActive && !canStartGame ? theme.colors.onSurfaceVariant : theme.colors.onPrimary}
           disabled={!isGameActive && !canStartGame}
         />
       </View>
@@ -299,11 +353,14 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 16,
+    borderRadius: 28,
+    overflow: 'hidden',
   },
   playerSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 8,
   },
   playerSummaryLeft: {
     flexDirection: 'row',
@@ -311,10 +368,10 @@ const styles = StyleSheet.create({
   },
   avatarStack: {
     flexDirection: 'row',
-    marginRight: 12,
+    marginRight: 16,
   },
   stackedAvatar: {
-    borderWidth: 2,
+    borderWidth: 2.5,
   },
   playerInfo: {
     marginLeft: 8,
@@ -322,61 +379,83 @@ const styles = StyleSheet.create({
   settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   settingsInfo: {
-    marginLeft: 12,
+    marginLeft: 16,
     flex: 1,
+    paddingVertical: 4,
   },
   settingsChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 6,
-    gap: 6,
+    gap: 8,
     alignItems: 'center',
   },
   chip: {
-    // Removed fixed height to prevent text cropping
+    borderRadius: 8,
+  },
+  smallChip: {
+    borderRadius: 16,
+    paddingVertical: 4,
   },
   section: {
-    marginTop: 8,
+    marginTop: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingHorizontal: 4,
   },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: 16,
   },
   categoryCard: {
     width: '48%',
   },
+  fullWidth: {
+    width: '100%',
+  },
   categoryContent: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
   categoryName: {
-    marginTop: 8,
+    marginTop: 12,
     textAlign: 'center',
+    fontWeight: '600',
+  },
+  customBadgeContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   customBadge: {
-    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    minHeight: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fabContainer: {
     position: 'absolute',
     right: 20,
-    bottom: 110,
+    bottom: 88 + 24, // Tab bar top (24+64) + Gap (24)
     alignItems: 'flex-end',
-    gap: 12,
+    gap: 8,
   },
   fab: {
-    // Standard FAB style
+    borderRadius: 20,
   },
   smallFab: {
-    // Smaller FAB for secondary actions
+    borderRadius: 16,
   },
 });

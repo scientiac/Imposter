@@ -14,6 +14,7 @@ import {
   Card,
   Dialog,
   FAB,
+  IconButton,
   Portal,
   Text,
   TextInput,
@@ -136,10 +137,10 @@ export default function CategoriesScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="headlineLarge" style={styles.title}>
+          <Text variant="displaySmall" style={[styles.title, { color: theme.colors.primary }]}>
             Categories
           </Text>
-          <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, opacity: 0.8 }}>
             Manage your custom word lists
           </Text>
         </View>
@@ -160,34 +161,43 @@ export default function CategoriesScreen() {
         ) : (
           <View style={styles.grid}>
             {customCategories.map((category) => (
-              <Card key={category.id} style={styles.card} mode="elevated">
-                <Card.Content>
-                  <View style={styles.cardHeader}>
-                    <Avatar.Icon
-                      size={48}
-                      icon={getCategoryIcon(category.icon)}
-                      style={{ backgroundColor: theme.colors.tertiaryContainer }}
+              <Card key={category.id} style={styles.card} mode="contained">
+                <Card.Content style={styles.cardContent}>
+                  <Avatar.Icon
+                    size={56}
+                    icon={getCategoryIcon(category.icon)}
+                    style={{ backgroundColor: theme.colors.tertiaryContainer }}
+                    color={theme.colors.onTertiaryContainer}
+                  />
+                  <View style={styles.categoryInfo}>
+                    <Text variant="titleLarge" style={styles.categoryName} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                    <View style={styles.badgeRow}>
+                      <View style={[styles.countBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
+                        <Text variant="labelSmall" style={{ color: theme.colors.onSecondaryContainer, fontWeight: 'bold' }}>
+                          {category.words.length} WORDS
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.cardActions}>
+                    <IconButton
+                      icon="pencil-outline"
+                      mode="contained-tonal"
+                      onPress={() => showModal(category)}
+                      size={24}
+                    />
+                    <IconButton
+                      icon="delete-outline"
+                      mode="contained"
+                      containerColor={theme.colors.errorContainer}
+                      iconColor={theme.colors.onErrorContainer}
+                      onPress={() => confirmDelete(category)}
+                      size={24}
                     />
                   </View>
-                  <Text variant="titleMedium" style={styles.categoryName} numberOfLines={1}>
-                    {category.name}
-                  </Text>
-                  <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                    {category.words.length} words
-                  </Text>
                 </Card.Content>
-                <Card.Actions>
-                  <Button onPress={() => showModal(category)}>Edit</Button>
-                  <Button
-                    mode="contained"
-                    buttonColor="#D32F2F"
-                    textColor="white"
-                    icon="delete"
-                    onPress={() => confirmDelete(category)}
-                  >
-                    Delete
-                  </Button>
-                </Card.Actions>
               </Card>
             ))}
           </View>
@@ -315,28 +325,48 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 8,
+    borderRadius: 28,
+    backgroundColor: 'transparent',
   },
-  cardHeader: {
+  cardContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    padding: 16,
+  },
+  categoryInfo: {
+    flex: 1,
+    marginLeft: 16,
   },
   categoryName: {
     fontWeight: 'bold',
-    marginBottom: 4,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 110,
+    bottom: 88 + 24, // Tab bar top (24+64) + Gap (24)
+    borderRadius: 20,
   },
   input: {
     marginBottom: 16,
+    borderRadius: 12,
   },
   textArea: {
     marginBottom: 8,
-    minHeight: 120, // ensure enough visual space
+    minHeight: 120,
+    borderRadius: 12,
   },
   buttonContent: {
     height: 48,
@@ -344,8 +374,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   buttonLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.25,
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });

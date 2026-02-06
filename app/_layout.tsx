@@ -44,7 +44,10 @@ export default function RootLayout() {
     <PaperProvider theme={paperTheme}>
       <ThemeProvider value={navTheme}>
         <GameProvider>
-          <Stack screenOptions={{ contentStyle: { backgroundColor: paperTheme.colors.background } }}>
+          <Stack screenOptions={{
+            contentStyle: { backgroundColor: paperTheme.colors.background },
+            animation: 'fade_from_bottom',
+          }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
               name="player-setup"
@@ -63,9 +66,10 @@ export default function RootLayout() {
             <Stack.Screen
               name="reveal"
               options={{
-                presentation: 'modal',
+                presentation: 'transparentModal',
                 headerShown: false,
                 gestureEnabled: false,
+                animation: 'fade',
               }}
             />
             <Stack.Screen
