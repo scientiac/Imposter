@@ -21,7 +21,6 @@ import {
     List,
     Modal,
     Portal,
-    ProgressBar,
     Surface,
     Text,
     TextInput,
@@ -79,6 +78,7 @@ function RevealView() {
 
     const [isVerificationModalVisible, setVerificationModalVisible] = useState(false);
     const [isVerified, setIsVerified] = useState(false);
+    const [hasRotated, setHasRotated] = useState(false);
     const [hintInput, setHintInput] = useState('');
     const [showPassPhone, setShowPassPhone] = useState(true);
     const revealTimeoutRef = useRef<any>(null);
@@ -125,6 +125,7 @@ function RevealView() {
         revealTimeoutRef.current = setTimeout(() => {
             rotation.value = withTiming(180, { duration: 400 });
             revealWord(actualPlayerIndex);
+            setHasRotated(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             revealTimeoutRef.current = null;
         }, 500);
@@ -152,6 +153,7 @@ function RevealView() {
         }
         setHintInput('');
         setIsVerified(false);
+        setHasRotated(false);
         setVerificationModalVisible(false);
         nextPlayerReveal();
         setShowPassPhone(true);
@@ -159,43 +161,100 @@ function RevealView() {
 
     const getWordDisplay = () => {
         if (isImposter) {
-            if (imposterWordMode === 'hidden') return { title: playerWord, subtitle: 'Secret Word', icon: 'eye' };
-            if (imposterWordMode === 'no_hint') return { title: 'Imposter', subtitle: 'Role: Imposter (No Hint)', icon: 'incognito' };
-            if (imposterWordMode === 'category_hint') return { title: 'Imposter', subtitle: `Hint: ${hintWord || '??'}`, icon: 'incognito' };
+            if (imposterWordMode === 'hidden') return { title: playerWord, subtitle: null, icon: 'eye' };
+            if (imposterWordMode === 'no_hint') return { title: 'Imposter', subtitle: null, icon: 'incognito' };
+            if (imposterWordMode === 'category_hint') return { title: 'Imposter', subtitle: hintWord ? `Hint: ${hintWord}` : null, icon: 'incognito' };
             if (imposterWordMode === 'user_hint') {
                 const availableHints = allHints.filter(h => h.trim().length > 0);
                 const randomHint = availableHints.length > 0 ? availableHints[Math.floor(Math.random() * availableHints.length)] : null;
-                return { title: 'Imposter', subtitle: randomHint ? `Hint: ${randomHint}` : 'No hint since you are starting the game.', icon: 'incognito' };
+                return { title: 'Imposter', subtitle: randomHint ? `Hint: ${randomHint}` : null, icon: 'incognito' };
             }
         }
-        return { title: playerWord, subtitle: 'Secret Word', icon: 'eye' };
+        return { title: playerWord, subtitle: null, icon: 'eye' };
     };
 
     const wordInfo = getWordDisplay();
+    const progress = (currentPlayerIndex + 1) / players.length;
 
+    // Pass-the-Phone Screen - Matching voting UI style
     if (showPassPhone) {
         return (
             <PhaseTransition key="pass-phone-reveal" type="slide" style={styles.phaseContainer}>
-                <View style={styles.passPhoneContainer}>
-                    <Surface style={styles.passPhoneCard} elevation={2}>
-                        <PlayerAvatar name={currentPlayer.name} size={90} />
-                        <Text variant="displaySmall" style={[styles.phaseTitle, { marginTop: 28, color: theme.colors.primary }]}>Pass the Phone</Text>
-                        <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 12 }}>To: {currentPlayer.name}</Text>
-                        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 16 }}>Please hand the device to the next player securely.</Text>
+                <View style={styles.votingPassPhoneContainer}>
+                    {/* Progress Pills */}
+                    <View style={styles.progressPills}>
+                        {players.map((_, i) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.progressPill,
+                                    {
+                                        backgroundColor: i < currentPlayerIndex
+                                            ? theme.colors.primary
+                                            : i === currentPlayerIndex
+                                                ? theme.colors.primaryContainer
+                                                : theme.colors.surfaceVariant,
+                                        flex: i === currentPlayerIndex ? 2 : 1,
+                                    }
+                                ]}
+                            />
+                        ))}
+                    </View>
+
+                    {/* Main Card */}
+                    <Surface style={[styles.votingPassCard, { backgroundColor: theme.colors.elevation.level2 }]} elevation={3}>
+                        <View style={styles.votingIconContainer}>
+                            <Avatar.Icon
+                                size={56}
+                                icon="eye-outline"
+                                style={{ backgroundColor: theme.colors.primaryContainer }}
+                                color={theme.colors.primary}
+                            />
+                        </View>
+
+                        <Text
+                            variant="headlineLarge"
+                            style={[styles.votingPassTitle, { color: theme.colors.onSurface }]}
+                        >
+                            Secret Reveal
+                        </Text>
+
+                        <View style={styles.votingPlayerBadge}>
+                            <PlayerAvatar name={currentPlayer.name} size={72} />
+                            <Text
+                                variant="titleLarge"
+                                style={[styles.votingPlayerName, { color: theme.colors.onSurface }]}
+                            >
+                                {currentPlayer.name}
+                            </Text>
+                            <Text
+                                variant="bodyMedium"
+                                style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
+                            >
+                                Player {currentPlayerIndex + 1} of {players.length}
+                            </Text>
+                        </View>
+
+                        <Text
+                            variant="bodyLarge"
+                            style={[styles.votingPassSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                        >
+                            Pass the phone securely
+                        </Text>
+
                         <ScalableButton
-                            onPress={() => setShowPassPhone(false)}
-                            style={{ marginTop: 32, width: '100%' }}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setShowPassPhone(false);
+                            }}
+                            style={styles.votingPassButton}
                         >
                             <Button
                                 mode="contained"
-                                style={{
-                                    width: '100%',
-                                    height: Layout.floatingBar.height,
-                                    borderRadius: Layout.floatingBar.borderRadius,
-                                }}
+                                style={styles.votingButton}
                                 contentStyle={styles.buttonContent}
                                 labelStyle={styles.actionButtonLabel}
-                                icon="account-arrow-right"
+                                icon="account-check"
                                 pointerEvents="none"
                                 buttonColor={theme.colors.primary}
                                 textColor={theme.colors.onPrimary}
@@ -209,31 +268,52 @@ function RevealView() {
         );
     }
 
+    // Card Reveal Screen - Matching voting UI header style
     return (
         <PhaseTransition key="reveal-main" type="fade" style={styles.phaseContainer}>
-            <View style={styles.revealHeader}>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                    {players.map((_, i) => (
-                        <View key={i} style={{ width: i === currentPlayerIndex ? 24 : 8, height: 8, borderRadius: 4, backgroundColor: i === currentPlayerIndex ? theme.colors.primary : theme.colors.surfaceVariant, opacity: i === currentPlayerIndex ? 1 : 0.6 }} />
-                    ))}
+            {/* Header with elegant progress - matching voting UI */}
+            <View style={styles.votingHeader}>
+                <View style={styles.votingHeaderTop}>
+                    <PlayerAvatar name={currentPlayer.name} size={48} />
+                    <View style={styles.votingHeaderText}>
+                        <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, letterSpacing: 0.5 }}>
+                            REVEALING CARD
+                        </Text>
+                        <Text variant="titleLarge" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>
+                            {currentPlayer.name}
+                        </Text>
+                    </View>
+                    <Surface style={[styles.votingProgressBadge, { backgroundColor: theme.colors.primaryContainer }]} elevation={0}>
+                        <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+                            {currentPlayerIndex + 1}/{players.length}
+                        </Text>
+                    </Surface>
                 </View>
-                <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant }}>Player {currentPlayerIndex + 1} of {players.length}</Text>
+
+                {/* Progress Bar */}
+                <View style={styles.votingProgressContainer}>
+                    <View
+                        style={[
+                            styles.votingProgressFill,
+                            {
+                                backgroundColor: theme.colors.primary,
+                                width: `${progress * 100}%`,
+                            }
+                        ]}
+                    />
+                </View>
             </View>
 
+            {/* Card Container */}
             <View style={styles.revealContent}>
-                <View style={{ alignItems: 'center', marginBottom: 40 }}>
-                    <PlayerAvatar name={currentPlayer.name} size={64} style={{ marginBottom: 16 }} />
-                    <Text variant="headlineMedium" style={{ color: theme.colors.onSurface, fontWeight: 'bold' }}>{currentPlayer.name}</Text>
-                </View>
-
                 <ScalableButton onPressIn={handlePressIn} onPressOut={handlePressOut} style={styles.revealCardContainer} activeScale={1.02}>
                     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
                         <Animated.View style={[styles.revealCardFace, styles.revealCardFront, frontAnimatedStyle]}>
                             <Card style={[styles.revealCard, { backgroundColor: theme.colors.elevation.level2, borderColor: theme.colors.outlineVariant, borderWidth: 1 }]} mode="outlined">
                                 <Card.Content style={styles.revealCardContent}>
-                                    <Avatar.Icon size={64} icon="fingerprint" style={{ backgroundColor: theme.colors.surfaceVariant }} color={theme.colors.primary} />
-                                    <Text variant="titleLarge" style={[styles.tapText, { color: theme.colors.primary }]}>SECRET CARD</Text>
-                                    <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, opacity: 0.7, marginTop: 4 }}>Tap & Hold</Text>
+                                    <Avatar.Icon size={56} icon="fingerprint" style={{ backgroundColor: theme.colors.surfaceVariant }} color={theme.colors.primary} />
+                                    <Text variant="titleMedium" style={[styles.tapText, { color: theme.colors.primary }]}>TAP & HOLD</Text>
+                                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, opacity: 0.7, marginTop: 4 }}>to reveal your role</Text>
                                 </Card.Content>
                             </Card>
                         </Animated.View>
@@ -241,34 +321,34 @@ function RevealView() {
                         <Animated.View style={[styles.revealCardFace, styles.revealCardBack, backAnimatedStyle]}>
                             <Card style={[styles.revealCard, (isImposter && imposterWordMode !== 'hidden') ? { backgroundColor: theme.colors.errorContainer, borderColor: theme.colors.error } : { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }, { borderWidth: 1.5, borderRadius: 28 }]} mode="outlined">
                                 <Card.Content style={styles.revealCardContent}>
-                                    <Avatar.Icon size={72} icon={wordInfo.icon} style={{ backgroundColor: (isImposter && imposterWordMode !== 'hidden') ? theme.colors.error : theme.colors.primaryContainer }} color={(isImposter && imposterWordMode !== 'hidden') ? "white" : theme.colors.primary} />
-                                    <Text variant="headlineMedium" style={[styles.wordText, (isImposter && imposterWordMode !== 'hidden') ? { color: theme.colors.error } : { color: theme.colors.onSurface }]}>{wordInfo.title}</Text>
-                                    <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', fontWeight: '500' }}>{wordInfo.subtitle}</Text>
+                                    <Avatar.Icon size={56} icon={wordInfo.icon} style={{ backgroundColor: (isImposter && imposterWordMode !== 'hidden') ? theme.colors.error : theme.colors.primaryContainer }} color={(isImposter && imposterWordMode !== 'hidden') ? "white" : theme.colors.primary} />
+                                    <Text variant="headlineSmall" style={[styles.wordText, (isImposter && imposterWordMode !== 'hidden') ? { color: theme.colors.error } : { color: theme.colors.onSurface }]}>{wordInfo.title}</Text>
+                                    {wordInfo.subtitle && <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', fontWeight: '500' }}>{wordInfo.subtitle}</Text>}
                                 </Card.Content>
                             </Card>
                         </Animated.View>
                     </View>
                 </ScalableButton>
-
-                <Portal>
-                    <Modal visible={isVerificationModalVisible} dismissable={false} contentContainerStyle={styles.modalContent}>
-                        <Card>
-                            <Card.Title title="Hint Contribution" subtitle="Enter a hint for the word" left={(props) => <Avatar.Icon {...props} icon="lightbulb" />} />
-                            <Card.Content>
-                                <Text variant="bodyMedium" style={{ marginBottom: 16 }}>{imposterWordMode === 'hidden' ? "Enter a one-word hint that relates to the secret word." : isImposter ? "Pretend to be typing a hint to blend in. You are the Imposter." : "Enter a one-word hint that relates to the secret word."}</Text>
-                                <TextInput mode="outlined" label="Hint Word" value={hintInput} onChangeText={setHintInput} autoFocus style={{ marginBottom: 16 }} />
-                                <ScalableButton onPress={() => { if (hintInput.trim().length > 0) { Keyboard.dismiss(); if (!isImposter || imposterWordMode === 'hidden') addHint(hintInput.trim()); setIsVerified(true); setVerificationModalVisible(false); } }} disabled={hintInput.trim().length === 0}>
-                                    <Button mode="contained" disabled={hintInput.trim().length === 0} pointerEvents="none">Confirm Hint</Button>
-                                </ScalableButton>
-                            </Card.Content>
-                        </Card>
-                    </Modal>
-                </Portal>
             </View>
 
+            <Portal>
+                <Modal visible={isVerificationModalVisible} dismissable={false} contentContainerStyle={styles.modalContent}>
+                    <Card>
+                        <Card.Title title="Hint Contribution" subtitle="Enter a hint for the word" left={(props) => <Avatar.Icon {...props} icon="lightbulb" />} />
+                        <Card.Content>
+                            <Text variant="bodyMedium" style={{ marginBottom: 16 }}>{imposterWordMode === 'hidden' ? "Enter a one-word hint that relates to the secret word." : isImposter ? "Pretend to be typing a hint to blend in. You are the Imposter." : "Enter a one-word hint that relates to the secret word."}</Text>
+                            <TextInput mode="outlined" label="Hint Word" value={hintInput} onChangeText={setHintInput} autoFocus style={{ marginBottom: 16 }} />
+                            <ScalableButton onPress={() => { if (hintInput.trim().length > 0) { Keyboard.dismiss(); if (!isImposter || imposterWordMode === 'hidden') addHint(hintInput.trim()); setIsVerified(true); setVerificationModalVisible(false); } }} disabled={hintInput.trim().length === 0}>
+                                <Button mode="contained" disabled={hintInput.trim().length === 0} pointerEvents="none">Confirm Hint</Button>
+                            </ScalableButton>
+                        </Card.Content>
+                    </Card>
+                </Modal>
+            </Portal>
+
             <View style={styles.buttonContainer}>
-                <ScalableButton onPress={handleNext} disabled={!isVerified} style={styles.actionButton}>
-                    <Button mode="contained" disabled={!isVerified} style={styles.fullWidth} contentStyle={styles.buttonContent} labelStyle={styles.actionButtonLabel} icon={isLastPlayer ? 'play' : 'cellphone-arrow-down'} pointerEvents="none" buttonColor={isVerified ? theme.colors.primary : theme.colors.surfaceVariant}>
+                <ScalableButton onPress={handleNext} disabled={!hasRotated || !isVerified} style={styles.actionButton}>
+                    <Button mode="contained" disabled={!hasRotated || !isVerified} style={styles.fullWidth} contentStyle={styles.buttonContent} labelStyle={styles.actionButtonLabel} icon={isLastPlayer ? 'play' : 'arrow-right-circle'} pointerEvents="none" buttonColor={(hasRotated && isVerified) ? theme.colors.primary : theme.colors.surfaceVariant}>
                         {isLastPlayer ? 'Start Discussion' : `Pass to ${players[revealOrder[currentPlayerIndex + 1]]?.name || 'Next'}`}
                     </Button>
                 </ScalableButton>
@@ -402,6 +482,7 @@ function VotingView() {
 
     const handleVote = () => {
         if (!currentVoter || !selectedTarget) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         castVote(currentVoter.id, selectedTarget);
         setSelectedTarget(null);
 
@@ -414,6 +495,7 @@ function VotingView() {
     };
 
     const handlePassPhone = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setShowPassPhone(false);
     };
 
@@ -421,39 +503,82 @@ function VotingView() {
         return null;
     }
 
+    // Pass-the-Phone Screen - Elegant handoff design
     if (showPassPhone) {
         return (
-            <PhaseTransition key="pass-phone" type="slide" style={styles.phaseContainer}>
-                <View style={styles.passPhoneContainer}>
-                    <Surface style={styles.passPhoneCard} elevation={2}>
-                        <PlayerAvatar name={currentVoter.name} size={100} />
-                        <Text variant="displaySmall" style={[styles.phaseTitle, { marginTop: 28, color: theme.colors.primary }]}>
-                            Voting Phase
+            <PhaseTransition key="pass-phone-voting" type="slide" style={styles.phaseContainer}>
+                <View style={styles.votingPassPhoneContainer}>
+                    {/* Progress Pills */}
+                    <View style={styles.progressPills}>
+                        {players.map((_, i) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.progressPill,
+                                    {
+                                        backgroundColor: i < currentVoterIndex
+                                            ? theme.colors.primary
+                                            : i === currentVoterIndex
+                                                ? theme.colors.primaryContainer
+                                                : theme.colors.surfaceVariant,
+                                        flex: i === currentVoterIndex ? 2 : 1,
+                                    }
+                                ]}
+                            />
+                        ))}
+                    </View>
+
+                    {/* Main Card */}
+                    <Surface style={[styles.votingPassCard, { backgroundColor: theme.colors.elevation.level2 }]} elevation={3}>
+                        <View style={styles.votingIconContainer}>
+                            <Avatar.Icon
+                                size={56}
+                                icon="vote"
+                                style={{ backgroundColor: theme.colors.primaryContainer }}
+                                color={theme.colors.primary}
+                            />
+                        </View>
+
+                        <Text
+                            variant="headlineLarge"
+                            style={[styles.votingPassTitle, { color: theme.colors.onSurface }]}
+                        >
+                            Time to Vote
                         </Text>
-                        <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 8 }}>
-                            To: {currentVoter.name}
-                        </Text>
-                        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 16, opacity: 0.8 }}>
-                            Pass the phone to {currentVoter.name} to cast their secret vote.
+
+                        <View style={styles.votingPlayerBadge}>
+                            <PlayerAvatar name={currentVoter.name} size={72} />
+                            <Text
+                                variant="titleLarge"
+                                style={[styles.votingPlayerName, { color: theme.colors.onSurface }]}
+                            >
+                                {currentVoter.name}
+                            </Text>
+                            <Text
+                                variant="bodyMedium"
+                                style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
+                            >
+                                Voter {currentVoterIndex + 1} of {players.length}
+                            </Text>
+                        </View>
+
+                        <Text
+                            variant="bodyLarge"
+                            style={[styles.votingPassSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                        >
+                            Pass the phone securely
                         </Text>
 
                         <ScalableButton
                             onPress={handlePassPhone}
-                            style={{
-                                marginTop: 32,
-                                width: '100%',
-                            }}
+                            style={styles.votingPassButton}
                         >
                             <Button
                                 mode="contained"
-                                style={{
-                                    width: '100%',
-                                    height: Layout.floatingBar.height,
-                                    borderRadius: Layout.floatingBar.borderRadius,
-                                }}
+                                style={styles.votingButton}
                                 contentStyle={styles.buttonContent}
                                 labelStyle={styles.actionButtonLabel}
-                                icon="account-arrow-right"
+                                icon="account-check"
                                 pointerEvents="none"
                                 buttonColor={theme.colors.primary}
                                 textColor={theme.colors.onPrimary}
@@ -467,88 +592,125 @@ function VotingView() {
         );
     }
 
+    // Vote Selection Screen - Premium vertical list
     return (
         <PhaseTransition type="fade" style={styles.phaseContainer}>
-            {/* Progress Header */}
-            <View style={styles.progressHeader}>
-                <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Voter {currentVoterIndex + 1} of {players.length}
-                </Text>
-                <ProgressBar
-                    progress={progress}
-                    color={theme.colors.primary}
-                    style={styles.progressBar}
-                />
+            {/* Header with elegant progress */}
+            <View style={styles.votingHeader}>
+                <View style={styles.votingHeaderTop}>
+                    <PlayerAvatar name={currentVoter.name} size={48} />
+                    <View style={styles.votingHeaderText}>
+                        <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, letterSpacing: 0.5 }}>
+                            CASTING VOTE
+                        </Text>
+                        <Text variant="titleLarge" style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>
+                            {currentVoter.name}
+                        </Text>
+                    </View>
+                    <Surface style={[styles.votingProgressBadge, { backgroundColor: theme.colors.primaryContainer }]} elevation={0}>
+                        <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+                            {currentVoterIndex + 1}/{players.length}
+                        </Text>
+                    </Surface>
+                </View>
+
+                {/* Progress Bar */}
+                <View style={styles.votingProgressContainer}>
+                    <View
+                        style={[
+                            styles.votingProgressFill,
+                            {
+                                backgroundColor: theme.colors.primary,
+                                width: `${progress * 100}%`,
+                            }
+                        ]}
+                    />
+                </View>
             </View>
 
-            {/* Current Voter */}
-            <Card style={[styles.voterCard, { borderRadius: 24 }]} mode="elevated">
-                <Card.Content style={styles.voterContent}>
-                    <PlayerAvatar
-                        size={64}
-                        name={currentVoter.name}
-                    />
-                    <View style={{ marginLeft: 20, flex: 1 }}>
-                        <Text variant="labelLarge" style={{ color: theme.colors.primary, fontWeight: 'bold', letterSpacing: 1 }}>
-                            CURRENT VOTER
-                        </Text>
-                        <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>{currentVoter.name}</Text>
-                    </View>
-                </Card.Content>
-            </Card>
+            {/* Question Prompt */}
+            <View style={styles.votingPromptContainer}>
+                <Avatar.Icon
+                    size={40}
+                    icon="help-circle"
+                    style={{ backgroundColor: theme.colors.tertiaryContainer }}
+                    color={theme.colors.tertiary}
+                />
+                <Text variant="headlineSmall" style={[styles.votingPromptText, { color: theme.colors.onSurface }]}>
+                    Who is the Imposter?
+                </Text>
+            </View>
 
-            <Text variant="titleMedium" style={styles.votePrompt}>
-                Who is the imposter?
-            </Text>
-
-            {/* Vote Targets */}
-            <ScrollView style={styles.voteList} showsVerticalScrollIndicator={false}>
-                <View style={styles.voteGrid}>
-                    {players
-                        .filter(p => p.id !== currentVoter.id)
-                        .map((p, index) => {
-                            const isSelected = selectedTarget === p.id;
-                            return (
-                                <Animated.View
-                                    key={p.id}
-                                    entering={FadeInDown.delay(index * 50).duration(400)}
-                                    style={styles.voteTargetCard}
+            {/* Vote Targets - Premium Vertical List */}
+            <ScrollView
+                style={styles.votingList}
+                contentContainerStyle={styles.votingListContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {players
+                    .filter(p => p.id !== currentVoter.id)
+                    .map((p, index) => {
+                        const isSelected = selectedTarget === p.id;
+                        return (
+                            <Animated.View
+                                key={p.id}
+                                entering={FadeInDown.delay(index * 80).duration(400).springify()}
+                            >
+                                <ScalableButton
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setSelectedTarget(p.id);
+                                    }}
+                                    activeScale={0.98}
                                 >
-                                    <ScalableButton
-                                        onPress={() => {
-                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                            setSelectedTarget(p.id);
-                                        }}
+                                    <Surface
+                                        style={[
+                                            styles.votingTargetCard,
+                                            {
+                                                backgroundColor: isSelected
+                                                    ? theme.colors.primaryContainer
+                                                    : theme.colors.elevation.level1,
+                                                borderColor: isSelected
+                                                    ? theme.colors.primary
+                                                    : 'transparent',
+                                                borderWidth: isSelected ? 2 : 0,
+                                            }
+                                        ]}
+                                        elevation={isSelected ? 3 : 1}
                                     >
-                                        <Card
-                                            style={[
-                                                styles.fullWidth,
-                                                { borderRadius: 24 },
-                                                isSelected && { borderColor: theme.colors.primary, borderWidth: 3 }
-                                            ]}
-                                            mode={isSelected ? 'elevated' : 'contained'}
-                                        >
-                                            <Card.Content style={styles.voteTargetContent}>
-                                                <PlayerAvatar
-                                                    name={p.name}
-                                                    size={56}
-                                                />
-                                                <Text
-                                                    variant="titleMedium"
-                                                    style={[
-                                                        styles.voteTargetName,
-                                                        isSelected && { color: theme.colors.primary, fontWeight: 'bold' }
-                                                    ]}
-                                                >
-                                                    {p.name}
-                                                </Text>
-                                            </Card.Content>
-                                        </Card>
-                                    </ScalableButton>
-                                </Animated.View>
-                            );
-                        })}
-                </View>
+                                        <PlayerAvatar
+                                            name={p.name}
+                                            size={52}
+                                        />
+                                        <View style={styles.votingTargetInfo}>
+                                            <Text
+                                                variant="titleMedium"
+                                                style={{
+                                                    fontWeight: isSelected ? 'bold' : '600',
+                                                    color: isSelected ? theme.colors.primary : theme.colors.onSurface,
+                                                }}
+                                            >
+                                                {p.name}
+                                            </Text>
+                                            <Text
+                                                variant="bodySmall"
+                                                style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}
+                                            >
+                                                {p.score} points
+                                            </Text>
+                                        </View>
+                                        <Avatar.Icon
+                                            size={32}
+                                            icon={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                                            style={{ backgroundColor: 'transparent' }}
+                                            color={isSelected ? theme.colors.primary : theme.colors.outline}
+                                        />
+                                    </Surface>
+                                </ScalableButton>
+                            </Animated.View>
+                        );
+                    })}
+                <View style={{ height: 100 }} />
             </ScrollView>
 
             {/* Submit Vote Button */}
@@ -564,12 +726,13 @@ function VotingView() {
                         style={styles.fullWidth}
                         contentStyle={styles.buttonContent}
                         labelStyle={styles.actionButtonLabel}
-                        icon="check-circle"
+                        icon={isLastVoter ? 'gavel' : 'arrow-right-circle'}
                         pointerEvents="none"
+                        buttonColor={selectedTarget ? theme.colors.primary : theme.colors.surfaceVariant}
                     >
                         {isLastVoter
                             ? 'Submit Final Vote'
-                            : `Confirm & Pass to ${nextVoterName}`
+                            : `Vote & Pass to ${nextVoterName}`
                         }
                     </Button>
                 </ScalableButton>
@@ -711,10 +874,10 @@ function ResultsView() {
                             <Divider style={{ height: 40, width: 1 }} />
                             <View style={styles.wordColumn}>
                                 <Text variant="labelSmall" style={{ color: theme.colors.error, marginBottom: 4 }}>
-                                    {imposterWordMode === 'no_word' ? 'IMPOSTER WORD' : 'FALSE WORD'}
+                                    {imposterWordMode === 'no_hint' ? 'IMPOSTER WORD' : 'FALSE WORD'}
                                 </Text>
                                 <Text variant="headlineSmall" style={{ color: theme.colors.error, fontWeight: 'bold' }}>
-                                    {imposterWordMode === 'no_word' ? '???' : imposterWord}
+                                    {imposterWordMode === 'no_hint' ? '???' : imposterWord}
                                 </Text>
                             </View>
                         </View>
@@ -1039,12 +1202,13 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingBottom: 80,
+        paddingHorizontal: 20,
+        paddingBottom: 90, // Account for floating button (54px) + bottom margin (24px) + extra spacing
     },
     revealCardContainer: {
         width: '100%',
-        aspectRatio: 0.8,
-        maxWidth: 320,
+        aspectRatio: 0.72,
+        maxWidth: 300,
     },
     revealCardFace: {
         position: 'absolute',
@@ -1082,5 +1246,112 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         padding: 20,
+    },
+    // New Voting UI Styles
+    votingPassPhoneContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    progressPills: {
+        flexDirection: 'row',
+        gap: 6,
+        marginBottom: 24,
+        paddingHorizontal: 40,
+    },
+    progressPill: {
+        height: 6,
+        borderRadius: 3,
+    },
+    votingPassCard: {
+        width: '100%',
+        padding: 32,
+        alignItems: 'center',
+        borderRadius: 32,
+    },
+    votingIconContainer: {
+        marginBottom: 16,
+    },
+    votingPassTitle: {
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    votingPlayerBadge: {
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    votingPlayerName: {
+        fontWeight: 'bold',
+        marginTop: 12,
+    },
+    votingPassSubtitle: {
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    votingPassButton: {
+        marginTop: 24,
+        width: '100%',
+    },
+    votingButton: {
+        width: '100%',
+        height: 54,
+        borderRadius: 16,
+    },
+    votingHeader: {
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
+    votingHeaderTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    votingHeaderText: {
+        flex: 1,
+        marginLeft: 16,
+    },
+    votingProgressBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    votingProgressContainer: {
+        height: 4,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    votingProgressFill: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    votingPromptContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 16,
+        gap: 12,
+    },
+    votingPromptText: {
+        fontWeight: 'bold',
+    },
+    votingList: {
+        flex: 1,
+    },
+    votingListContent: {
+        paddingHorizontal: 20,
+        gap: 12,
+    },
+    votingTargetCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 20,
+        gap: 16,
+    },
+    votingTargetInfo: {
+        flex: 1,
     },
 });

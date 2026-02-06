@@ -260,7 +260,7 @@ export default function CategoriesScreen() {
           <Dialog.Title>Delete Category?</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              Are you sure you want to delete "{categoryToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{categoryToDelete?.name}&quot;? This action cannot be undone.
             </Text>
           </Dialog.Content>
           <Dialog.Actions>

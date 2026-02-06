@@ -30,6 +30,11 @@
         "buildType": "apk",
         "image": "latest"
       }
+    },
+    "production-apk": {
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
