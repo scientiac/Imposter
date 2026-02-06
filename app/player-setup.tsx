@@ -29,6 +29,7 @@ export default function PlayerSetupScreen() {
         phase,
         completePlayerSetup,
         startGame,
+        selectedCategories,
     } = useGame();
 
     const [currentName, setCurrentName] = useState('');
@@ -52,8 +53,13 @@ export default function PlayerSetupScreen() {
 
     const handleStartGame = () => {
         if (players.length >= 3) {
-            startGame();
-            router.replace('/reveal');
+            if (selectedCategories.length > 0) {
+                startGame();
+                router.replace('/reveal');
+            } else {
+                completePlayerSetup();
+                router.replace('/(tabs)');
+            }
         }
     };
 
@@ -61,6 +67,7 @@ export default function PlayerSetupScreen() {
     const isInitialSetup = phase === GamePhase.PLAYER_SETUP;
 
     // Redirect if not in player setup or lobby setup phase
+    // We allow REVEAL phase to stay on this screen briefly while the router performs the replace
     if (phase !== GamePhase.PLAYER_SETUP && phase !== GamePhase.SETUP && phase !== GamePhase.REVEAL) {
         return <Redirect href="/(tabs)" />;
     }
