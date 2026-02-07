@@ -6,22 +6,22 @@ import { ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { PaperProvider, Snackbar, Text } from 'react-native-paper';
+import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
-import { runOnJS } from 'react-native-reanimated';
 
-import { ShakeDetector } from '@/components/EasterEgg/ShakeDetector';
+
+
 import {
   BasePaperDarkTheme,
   BasePaperLightTheme,
   getNavTheme,
 } from '@/constants/theme';
-import { GamePhase, GameProvider, useGame } from '@/contexts/game-context';
+import { GameProvider } from '@/contexts/game-context';
 import { ThemeProvider as AppThemeSettingsProvider, useThemeContext } from '@/contexts/theme-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMaterial3Theme } from '@pchmn/expo-material3-theme';
 import * as SystemUI from 'expo-system-ui';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -105,55 +105,11 @@ function MainLayout() {
             />
           </Stack>
           <StatusBar style="auto" />
-          <EasterEggController />
+
         </GameProvider>
       </ThemeProvider>
     </PaperProvider>
   );
 }
 
-function EasterEggController() {
-  const { phase } = useGame();
-  const { toggleTheme } = useThemeContext();
-  const [visible, setVisible] = useState(false);
-  const [message, setMessage] = useState('');
 
-  const onDismissSnackBar = () => setVisible(false);
-
-  const handleShake = async () => {
-    const newMode = await toggleTheme();
-    // Ensure UI updates on JS thread since this might be called from a worklet context (accidental or future-proof)
-    runOnJS(setMessage)(newMode === 'default' ? 'Default' : 'Dynamic');
-    runOnJS(setVisible)(true);
-  };
-
-  if (phase !== GamePhase.PLAYER_SETUP && phase !== GamePhase.SETUP) {
-    return null;
-  }
-
-  return (
-    <>
-      <ShakeDetector onShake={handleShake} />
-      <Snackbar
-        visible={visible}
-        onDismiss={onDismissSnackBar}
-        duration={1500}
-        style={{
-          borderRadius: 50,
-          backgroundColor: '#333',
-          alignSelf: 'center',
-          width: 'auto',
-          minWidth: 100,
-        }}
-        wrapperStyle={{
-          top: 60,
-          justifyContent: 'flex-start',
-        }}
-      >
-        <Text variant="labelLarge" style={{ color: 'white', textAlign: 'center' }}>
-          {message}
-        </Text>
-      </Snackbar>
-    </>
-  );
-}
