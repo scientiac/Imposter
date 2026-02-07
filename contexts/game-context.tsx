@@ -62,6 +62,7 @@ interface GameState {
     playerOrder: number[]; // Randomized order for discussion
     revealOrder: number[]; // Randomized order for reveal phase
     lastFirstPlayerIndex: number | null; // Track who started last time to rotate
+    isHandoverComplete: boolean; // Persistent state for "Pass the Phone" screens
 }
 
 interface GameContextValue extends GameState {
@@ -93,6 +94,7 @@ interface GameContextValue extends GameState {
     nextRound: () => void;
     endGame: () => void;
     startNewGame: () => void; // Full reset including player setup
+    setHandoverComplete: (complete: boolean) => void;
 
     // Helpers
     getPlayerWord: (playerIndex: number) => string;
@@ -172,6 +174,7 @@ const initialState: GameState = {
     playerOrder: [],
     revealOrder: [],
     lastFirstPlayerIndex: null,
+    isHandoverComplete: false,
 };
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -261,15 +264,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setState(prev => ({
             ...prev,
             players: [],
-            phase: GamePhase.PLAYER_SETUP
+            phase: GamePhase.PLAYER_SETUP,
+            isHandoverComplete: false
         }));
     }, []);
 
     const completePlayerSetup = useCallback(() => {
         setState(prev => ({
             ...prev,
-            phase: GamePhase.SETUP
+            phase: GamePhase.SETUP,
+            isHandoverComplete: false
         }));
+    }, []);
+
+    const setHandoverComplete = useCallback((complete: boolean) => {
+        setState(prev => ({ ...prev, isHandoverComplete: complete }));
     }, []);
 
     // --- Category Management ---
@@ -406,9 +415,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 revealOrder, // Store the specific reveal order
                 lastFirstPlayerIndex: revealOrder[0], // Remember who went first
                 hintWord: prev.imposterWordMode === 'category_hint' ? randomCategory.name : null, // Set category as hint if in hint mode
+                isHandoverComplete: false,
             };
         });
-    }, [state.selectedCategories, state.players.length, state.randomizeStartingPlayer]);
+    }, [state.selectedCategories, state.players.length, state.imposterWordMode, state.imposterCount, state.randomizeStartingPlayer]);
 
     const revealWord = useCallback((playerIndex: number) => {
         setState(prev => {
@@ -431,6 +441,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             }
             return {
                 ...prev,
+                isHandoverComplete: false,
                 currentPlayerIndex: nextIndex
             };
         });
@@ -447,7 +458,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             return {
                 ...prev,
                 phase: GamePhase.VOTING,
-                currentVoterIndex: 0
+                currentVoterIndex: 0,
+                isHandoverComplete: false,
             };
         });
     }, []);
@@ -473,7 +485,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             hasMoreVoters = true;
             return {
                 ...prev,
-                currentVoterIndex: nextIndex
+                currentVoterIndex: nextIndex,
+                isHandoverComplete: false,
             };
         });
         return hasMoreVoters;
@@ -587,9 +600,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 revealOrder,
                 lastFirstPlayerIndex: revealOrder[0],
                 hintWord: prev.imposterWordMode === 'category_hint' ? randomCategory.name : null,
+                isHandoverComplete: false,
             };
         });
-    }, [state.selectedCategories]);
+    }, [state.selectedCategories, state.players.length, state.imposterCount, state.imposterWordMode, state.randomizeStartingPlayer]);
 
     const endGame = useCallback(() => {
         setState(prev => ({
@@ -603,6 +617,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             imposterCount: prev.imposterCount,
             imposterWordMode: prev.imposterWordMode,
             isVotingEnabled: prev.isVotingEnabled,
+            isHandoverComplete: false,
         }));
     }, []);
 
@@ -613,6 +628,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             isLoadingCategories: prev.isLoadingCategories,
             isVotingEnabled: prev.isVotingEnabled,
             phase: GamePhase.PLAYER_SETUP,
+            isHandoverComplete: false,
         }));
     }, []);
 
@@ -667,6 +683,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         nextRound,
         endGame,
         startNewGame,
+        setHandoverComplete,
         setVotingEnabled,
         getPlayerWord,
         isPlayerImposter,

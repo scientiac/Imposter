@@ -71,11 +71,7 @@ export default function LobbyScreen() {
 
   const handleStartGame = () => {
     if (isGameActive) {
-      if (phase === GamePhase.REVEAL) {
-        router.push('/reveal');
-      } else {
-        router.push('/game');
-      }
+      router.push('/game');
       return;
     }
 
@@ -116,10 +112,7 @@ export default function LobbyScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text variant="displaySmall" style={[styles.title, { color: theme.colors.primary }]}>
-            Game Lobby
-          </Text>
-          <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant, opacity: 0.8 }}>
-            Select categories for the next round
+            Imposter
           </Text>
         </View>
 

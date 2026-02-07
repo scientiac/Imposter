@@ -74,13 +74,14 @@ function RevealView() {
         addHint,
         revealOrder,
         hintWord,
+        isHandoverComplete,
+        setHandoverComplete,
     } = useGame();
 
     const [isVerificationModalVisible, setVerificationModalVisible] = useState(false);
     const [isVerified, setIsVerified] = useState(false);
     const [hasRotated, setHasRotated] = useState(false);
     const [hintInput, setHintInput] = useState('');
-    const [showPassPhone, setShowPassPhone] = useState(true);
     const revealTimeoutRef = useRef<any>(null);
 
     const rotation = useSharedValue(0);
@@ -156,7 +157,6 @@ function RevealView() {
         setHasRotated(false);
         setVerificationModalVisible(false);
         nextPlayerReveal();
-        setShowPassPhone(true);
     };
 
     const getWordDisplay = () => {
@@ -177,7 +177,7 @@ function RevealView() {
     const progress = (currentPlayerIndex + 1) / players.length;
 
     // Pass-the-Phone Screen - Matching voting UI style
-    if (showPassPhone) {
+    if (!isHandoverComplete) {
         return (
             <PhaseTransition key="pass-phone-reveal" type="slide" style={styles.phaseContainer}>
                 <View style={styles.votingPassPhoneContainer}>
@@ -245,7 +245,7 @@ function RevealView() {
                         <ScalableButton
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setShowPassPhone(false);
+                                setHandoverComplete(true);
                             }}
                             style={styles.votingPassButton}
                         >
@@ -467,10 +467,11 @@ function VotingView() {
         nextVoter,
         submitVotes,
         getCurrentVoter,
+        isHandoverComplete,
+        setHandoverComplete,
     } = useGame();
 
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-    const [showPassPhone, setShowPassPhone] = useState(true);
 
     const currentVoter = getCurrentVoter();
     const progress = (currentVoterIndex + 1) / players.length;
@@ -490,13 +491,12 @@ function VotingView() {
             submitVotes();
         } else {
             nextVoter();
-            setShowPassPhone(true);
         }
     };
 
     const handlePassPhone = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setShowPassPhone(false);
+        setHandoverComplete(true);
     };
 
     if (!currentVoter) {
@@ -504,7 +504,7 @@ function VotingView() {
     }
 
     // Pass-the-Phone Screen - Elegant handoff design
-    if (showPassPhone) {
+    if (!isHandoverComplete) {
         return (
             <PhaseTransition key="pass-phone-voting" type="slide" style={styles.phaseContainer}>
                 <View style={styles.votingPassPhoneContainer}>
@@ -944,12 +944,13 @@ function ResultsView() {
                     style={styles.halfButton}
                 >
                     <Button
-                        mode="outlined"
-                        textColor={theme.colors.error}
-                        style={[styles.fullWidth, { borderColor: theme.colors.error }]}
+                        mode="contained"
+                        buttonColor={theme.colors.errorContainer}
+                        textColor={theme.colors.onErrorContainer}
+                        style={styles.fullWidth}
                         contentStyle={styles.buttonContent}
                         labelStyle={styles.halfButtonLabel}
-                        icon="pause"
+                        icon="close"
                     >
                         End Game
                     </Button>
