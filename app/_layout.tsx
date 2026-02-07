@@ -25,12 +25,12 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { theme } = useMaterial3Theme();
+  const { theme } = useMaterial3Theme({
+    fallbackSourceColor: BasePaperLightTheme.colors.primary,
+  });
 
   // Create dynamic paper theme
-  const paperTheme = colorScheme === 'dark'
-    ? { ...BasePaperDarkTheme, colors: theme ? theme.dark : BasePaperDarkTheme.colors }
-    : { ...BasePaperLightTheme, colors: theme ? theme.light : BasePaperLightTheme.colors };
+  const paperTheme = colorScheme === 'dark' ? BasePaperDarkTheme : BasePaperLightTheme;
 
   // Sync native background color with theme to prevent white flash
   useEffect(() => {
